@@ -90,6 +90,7 @@ void make_move(struct cube *cube, struct move move) {
 					rotations[1].face = FACE_S;
 					rotations[1].dir = flip_dir(move.dir);
 				default:
+					break;
 			}
 			break;
 

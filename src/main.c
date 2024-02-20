@@ -70,6 +70,7 @@ int main(int argc, char *argv[]) {
 						} else {
 							move.dir = ccw;
 						}
+						bool invalid = false;
 						switch (*text) {
 							case 'U':
 								move.face = U;
@@ -108,10 +109,11 @@ int main(int argc, char *argv[]) {
 								move.face = S;
 								break;
 							default:
-								goto continue_;
+								invalid = true;
+								break;
 						}
+						if (invalid) continue;
 						make_move(&cube, move);
-					continue_:
 					}
 					break;
 				}
