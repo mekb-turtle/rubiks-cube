@@ -1,6 +1,6 @@
 #include <SDL2/SDL_opengl.h>
 #include <stdio.h>
-#include <err.h>
+#include "err.h"
 #include <math.h>
 #include "render.h"
 #include "./config.h"

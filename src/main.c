@@ -1,5 +1,5 @@
 #include <stdio.h>
-#include <err.h>
+#include "err.h"
 
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_opengl.h>
