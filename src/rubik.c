@@ -25,6 +25,9 @@ static const intpos faces_map[] = {
         [FACE_B] = 3,
         [FACE_L] = 4,
         [FACE_D] = 5,
+        [FACE_M] = 6,
+        [FACE_E] = 7,
+        [FACE_S] = 8,
 };
 
 // stores which pieces are moved during a rotation
@@ -32,15 +35,27 @@ static const struct face_movement {
 	enum rotation_face face;
 	enum stickers stickers[3];
 } face_movement[][4] = {
-        {{F, {top_right, top_center, top_left}}, {L, {top_right, top_center, top_left}}, {B, {top_right, top_center, top_left}}, {R, {top_right, top_center, top_left}}},
-        {{U, {top_right, top_center, top_left}}, {R, {top_right, top_center, top_left}}, {D, {top_right, top_center, top_left}}, {L, {top_right, top_center, top_left}}},
-        {{U, {top_right, top_center, top_left}}, {B, {top_right, top_center, top_left}}, {D, {top_right, top_center, top_left}}, {F, {top_right, top_center, top_left}}},
-        {{F, {top_right, top_center, top_left}}, {L, {top_right, top_center, top_left}}, {B, {top_right, top_center, top_left}}, {R, {top_right, top_center, top_left}}},
-        {{U, {top_right, top_center, top_left}}, {F, {top_right, top_center, top_left}}, {D, {top_right, top_center, top_left}}, {B, {top_right, top_center, top_left}}},
-        {{F, {top_right, top_center, top_left}}, {R, {top_right, top_center, top_left}}, {B, {top_right, top_center, top_left}}, {L, {top_right, top_center, top_left}}}
+  // U:
+        {{F, {top_right, top_center, top_left}},          {L, {top_right, top_center, top_left}},          {B, {top_right, top_center, top_left}},          {R, {top_right, top_center, top_left}}         },
+ // F:
+        {{U, {bottom_left, bottom_center, bottom_right}}, {R, {top_left, middle_left, bottom_left}},       {D, {top_right, top_center, top_left}},          {L, {bottom_right, middle_right, top_right}}   },
+ // R:
+        {{U, {bottom_right, middle_right, top_right}},    {B, {top_left, middle_left, bottom_left}},       {D, {bottom_right, middle_right, top_right}},    {F, {bottom_right, middle_right, top_right}}   },
+ // B:
+        {{U, {top_right, top_center, top_left}},          {L, {top_left, middle_left, bottom_left}},       {D, {bottom_left, bottom_center, bottom_right}}, {R, {bottom_right, middle_right, top_right}}   },
+ // L:
+        {{U, {top_left, middle_left, bottom_left}},       {F, {top_left, middle_left, bottom_left}},       {D, {top_left, middle_left, bottom_left}},       {B, {bottom_right, middle_right, top_right}}   },
+ // D:
+        {{F, {bottom_left, bottom_center, bottom_right}}, {R, {bottom_left, bottom_center, bottom_right}}, {B, {bottom_left, bottom_center, bottom_right}}, {L, {bottom_left, bottom_center, bottom_right}}},
+ // M:
+        {{U, {top_center, middle_center, bottom_center}}, {F, {top_center, middle_center, bottom_center}}, {D, {top_center, middle_center, bottom_center}}, {B, {bottom_center, middle_center, top_center}}},
+ // E:
+        {{F, {middle_left, middle_center, middle_right}}, {R, {middle_left, middle_center, middle_right}}, {B, {middle_left, middle_center, middle_right}}, {L, {middle_left, middle_center, middle_right}}},
+ // S:
+        {{U, {middle_left, middle_center, middle_right}}, {R, {top_center, middle_center, bottom_center}}, {D, {middle_right, middle_center, middle_left}}, {L, {bottom_center, middle_center, top_center}}},
 };
 
-void make_move(struct cube *cube, struct move move) {
+void make_move(struct cube *cube, struct move move, struct base_rotation (*rotations_)[3]) {
 	struct base_rotation rotations[3] = {
 	        {.face = NONE},
 	        {.face = NONE},
@@ -62,6 +77,7 @@ void make_move(struct cube *cube, struct move move) {
 			rotations[0].dir = move.dir;
 			break;
 
+		// double layer turns use the single face layer + the middle layer
 		case u:
 		case r:
 		case f:
@@ -94,6 +110,7 @@ void make_move(struct cube *cube, struct move move) {
 			}
 			break;
 
+		// whole cube rotations just rotate 3 layers
 		case x:
 			rotations[0].face = FACE_R;
 			rotations[0].dir = move.dir;
@@ -118,36 +135,62 @@ void make_move(struct cube *cube, struct move move) {
 			rotations[2].face = FACE_B;
 			rotations[2].dir = flip_dir(move.dir);
 			break;
+
+		default:
+			return;
 	}
 
-	intpos times = 1;
-	if (move.dir == ccw) times = 3;
-	if (move.dir == dbl) times = 2;
-
-	for (intpos i = 0; i < times; ++i) {
+	for (intpos i = 0; i < 3; ++i) {
 		struct base_rotation rotation = rotations[i];
 		if (rotation.face == NONE) continue;
 
-		face_color(*stickers)[20];
-		intpos sticker_i = 0;
+		intpos times = 1;
+		if (rotation.dir == ccw) times = 3;
+		if (rotation.dir == dbl) times = 2;
 
-		face_movement[rotation.face];
+		for (intpos rotation_counter = times; rotation_counter; --rotation_counter) {
+			struct cube old_cube = *cube;
 
-		intpos face_i = faces_map[rotation.face];
+			intpos rotation_face_i = faces_map[rotation.face];
 
-		struct face *rotate_face = &cube->faces[face_i];
-		struct cube old_cube = *cube;
-		struct face old_face = old_cube.faces[face_i];
+			// store pointers to stickers to rotate
+			face_color *stickers[12];
+			face_color *stickers_old[12];
+			for (intpos face_i = 0, stickers_i = 0; face_i < 4; ++face_i) {
+				struct face_movement face = face_movement[rotation_face_i][face_i];
+				for (intpos face_sticker_i = 0; face_sticker_i < 3; ++face_sticker_i, ++stickers_i) {
+					stickers[stickers_i] = &cube->faces[faces_map[face.face]].stickers[face.stickers[face_sticker_i]];
+					stickers_old[stickers_i] = &old_cube.faces[faces_map[face.face]].stickers[face.stickers[face_sticker_i]];
+				}
+			}
 
-		rotate_face->top_right = old_face.top_left;
-		rotate_face->middle_right = old_face.top_center;
-		rotate_face->bottom_right = old_face.top_right;
-		rotate_face->bottom_center = old_face.middle_right;
-		rotate_face->bottom_left = old_face.bottom_right;
-		rotate_face->middle_left = old_face.bottom_center;
-		rotate_face->top_left = old_face.bottom_left;
-		rotate_face->top_center = old_face.middle_left;
+			// rotate the stickers
+			for (intpos stickers_i = 0; stickers_i < 12; ++stickers_i) {
+				intpos stickers_j = (stickers_i + 3) % 12; // rotate stickers by 3 spaces
+				*stickers[stickers_j] = *stickers_old[stickers_i];
+			}
+
+			if (rotation_face_i < 6) {
+				struct face *rotate_face = &cube->faces[rotation_face_i];
+				struct face old_face = old_cube.faces[rotation_face_i];
+
+				// rotate top stickers
+				rotate_face->top_right = old_face.top_left;
+				rotate_face->middle_right = old_face.top_center;
+				rotate_face->bottom_right = old_face.top_right;
+				rotate_face->bottom_center = old_face.middle_right;
+				rotate_face->bottom_left = old_face.bottom_right;
+				rotate_face->middle_left = old_face.bottom_center;
+				rotate_face->top_left = old_face.bottom_left;
+				rotate_face->top_center = old_face.middle_left;
+			}
+		}
 	}
+
+	// copy rotations to pointer, used for animations
+	for (intpos i = 0; i < 3; ++i)
+		(*rotations_)[i] = rotations[i];
+	return;
 }
 
 void reset_cube(struct cube *cube) {

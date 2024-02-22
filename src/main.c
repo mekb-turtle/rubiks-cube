@@ -45,7 +45,7 @@ int main(int argc, char *argv[]) {
 
 	glMatrixMode(GL_PROJECTION);
 	glLoadIdentity();
-	glOrtho(-1.0f, 1.0f, -1.0f, 1.0f, -1.0f, 1.0f);
+	glOrtho(-1.0f, 1.0f, 1.0f, -1.0f, -1.0f, 1.0f);
 	glMatrixMode(GL_MODELVIEW);
 	glLoadIdentity();
 
@@ -53,7 +53,20 @@ int main(int argc, char *argv[]) {
 	SDL_Point render_size;
 	SDL_Event event;
 
+	Sint32 mouse_x, mouse_y;
+	bool mouse_down = false;
+
 	while (loop) {
+		SDL_GetWindowSize(window, &window_size.x, &window_size.y);
+		if (window_size.x > window_size.y) {
+			render_size.x = render_size.y = window_size.y;
+		} else {
+			render_size.x = render_size.y = window_size.x;
+		}
+
+		if (render_size.x < 1) render_size.x = 1;
+		if (render_size.y < 1) render_size.y = 1;
+
 		while (SDL_PollEvent(&event)) {
 			switch (event.type) {
 				case SDL_QUIT:
@@ -113,21 +126,38 @@ int main(int argc, char *argv[]) {
 								break;
 						}
 						if (invalid) continue;
-						make_move(&cube, move);
+						make_move(&cube, move, NULL);
 					}
 					break;
 				}
+				case SDL_MOUSEBUTTONUP:
+					if (event.button.button == SDL_BUTTON_LEFT)
+						mouse_down = false;
+					break;
+				case SDL_MOUSEBUTTONDOWN:
+					if (event.button.button == SDL_BUTTON_LEFT) {
+						mouse_down = true;
+						mouse_x = event.motion.x;
+						mouse_y = event.motion.y;
+					}
+					break;
+				case SDL_MOUSEMOTION:
+					if (!mouse_down) break;
+					float dx = event.motion.x - mouse_x,
+					      dy = event.motion.y - mouse_y;
+					dx /= render_size.x;
+					dy /= render_size.y;
+
+					const float m = 200;
+					dx *= m;
+					dy *= m;
+					rotate_camera(dx, dy);
+					mouse_x = event.motion.x;
+					mouse_y = event.motion.y;
+					break;
 			}
 		}
 
-		SDL_GetWindowSize(window, &window_size.x, &window_size.y);
-		if (window_size.x > window_size.y) {
-			render_size.x = window_size.y;
-			render_size.y = window_size.y;
-		} else {
-			render_size.x = window_size.x;
-			render_size.y = window_size.x;
-		}
 		glViewport((window_size.x - render_size.x) / 2, (window_size.y - render_size.y) / 2, render_size.x, render_size.y);
 
 		glClear(GL_COLOR_BUFFER_BIT);

@@ -88,7 +88,7 @@ struct base_rotation {
 #define move(face_, dir_) ((struct move){.face = (face_), .dir = (dir_)})
 char get_char_move_face(enum move_face);
 char get_char_move_direction(enum move_direction);
-void make_move(struct cube *, struct move);
+void make_move(struct cube *cube, struct move move, struct base_rotation (*rotations)[3]);
 void reset_cube(struct cube *);
 void shuffle_cube(struct cube *);
 #endif //RUBIK_H

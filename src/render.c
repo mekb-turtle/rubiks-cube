@@ -21,16 +21,26 @@ static const float inner_size = 0.003f;
 static const float outer_size = 0;
 static const float gap_size = 2.0f;
 
+static float pitch = 20;
+static float yaw = 20;
+
+void rotate_camera(float x, float y) {
+	yaw -= x;
+	pitch += y;
+}
+
 void render(struct cube *cube) {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_CULL_FACE);
 	glCullFace(GL_FRONT);
+	glFrontFace(GL_CW);
 	glLoadIdentity();
 
-	static float rotation = 0.0f;
-	rotation += 0.1f;
-	glRotatef(rotation, 1, 1, 1);
+	glRotatef(pitch, -1.0f, 0.0f, 0.0f);
+
+	glRotatef(yaw, 0.0f, -1.0f, 0.0f);
+
 	glScalef(whole_size, whole_size, whole_size);
 
 	for (intpos face_i = 0; face_i < 6; ++face_i) {
@@ -38,7 +48,7 @@ void render(struct cube *cube) {
 
 		switch (face_i) {
 			case 0:
-				glRotatef(-90.0f, 1.0f, 0.0f, 0.0f);
+				glRotatef(90.0f, 1.0f, 0.0f, 0.0f);
 				break;
 			case 1:
 				break;
@@ -52,7 +62,7 @@ void render(struct cube *cube) {
 				glRotatef(-90.0f, 0.0f, 1.0f, 0.0f);
 				break;
 			case 5:
-				glRotatef(90.0f, 1.0f, 0.0f, 0.0f);
+				glRotatef(-90.0f, 1.0f, 0.0f, 0.0f);
 				break;
 		}
 
