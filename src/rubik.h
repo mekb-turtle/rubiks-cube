@@ -3,8 +3,10 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <SDL2/SDL.h>
+
 typedef uint8_t intpos;
 typedef uint8_t face_color;
+
 struct cube {
 	struct face {
 		union {
@@ -23,6 +25,7 @@ struct cube {
 		};
 	} faces[6];
 };
+
 enum stickers {
 	top_left,
 	top_center,
@@ -34,6 +37,7 @@ enum stickers {
 	bottom_center,
 	bottom_right
 };
+
 struct move {
 	enum move_face {
 		U = 'U',
@@ -68,10 +72,24 @@ struct move {
 	} dir;
 };
 
+struct sticker_rotations {
+	enum axis {
+		AXIS_X = 'x',
+		AXIS_Y = 'y',
+		AXIS_Z = 'z',
+	} axis;
+	enum move_direction dir;
+	uint64_t stickers; // bitmask of what stickers to rotate
+		Uint32 start_time; // SDL_GetTicks
+};
+
 #define move(face_, dir_) ((struct move){.face = (face_), .dir = (dir_)})
+
 char get_char_move_face(enum move_face);
 char get_char_move_direction(enum move_direction);
-void make_move(struct cube *cube, struct move move);
+void make_move(struct cube *cube, struct move move, struct sticker_rotations *animation);
 void reset_cube(struct cube *);
 void shuffle_cube(struct cube *);
+intpos get_sticker_bitmask(intpos face_no, intpos sticker_i);
+intpos get_face_bitmask(intpos face_no);
 #endif //RUBIK_H

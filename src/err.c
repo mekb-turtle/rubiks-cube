@@ -3,6 +3,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+// separate err library for use on some Windows environments
+
 extern char *__progname;
 
 static void __vwarnx_internal(const char *format, va_list args) {

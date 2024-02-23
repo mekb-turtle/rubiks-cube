@@ -8,7 +8,7 @@ char get_char_move_direction(enum move_direction dir) {
 	return "\0'2"[dir];
 }
 
-static struct base_rotation {
+struct base_rotation {
 	enum rotation_face {
 		NONE = 0,
 		FACE_U = 'U',
@@ -48,10 +48,10 @@ static const intpos faces_map[] = {
 };
 
 // stores which pieces are moved during a rotation
-static const struct face_movement {
+static const struct move_map {
 	enum rotation_face face;
 	enum stickers stickers[3];
-} face_movement[][4] = {
+} moves_map[][4] = {
   // U:
         {{F, {top_right, top_center, top_left}},          {L, {top_right, top_center, top_left}},          {B, {top_right, top_center, top_left}},          {R, {top_right, top_center, top_left}}         },
  // F:
@@ -72,7 +72,7 @@ static const struct face_movement {
         {{U, {middle_left, middle_center, middle_right}}, {R, {top_center, middle_center, bottom_center}}, {D, {middle_right, middle_center, middle_left}}, {L, {bottom_center, middle_center, top_center}}},
 };
 
-void make_move(struct cube *cube, struct move move) {
+void make_move(struct cube *cube, struct move move, struct sticker_rotations *animation) {
 	struct base_rotation rotations[3] = {
 	        {.face = NONE},
 	        {.face = NONE},
@@ -157,6 +157,38 @@ void make_move(struct cube *cube, struct move move) {
 			return;
 	}
 
+	if (animation) {
+		animation->dir = rotations[0].dir;
+		switch (rotations[0].face) {
+			case U:
+				animation->axis = AXIS_Y;
+				break;
+			case R:
+				animation->axis = AXIS_X;
+				break;
+			case F:
+			case S:
+				animation->axis = AXIS_Z;
+				break;
+			case D:
+			case E:
+				animation->axis = AXIS_Y;
+				animation->dir = flip_dir(animation->dir);
+				break;
+			case L:
+			case M:
+				animation->axis = AXIS_X;
+				animation->dir = flip_dir(animation->dir);
+				break;
+			case B:
+				animation->axis = AXIS_Z;
+				animation->dir = flip_dir(animation->dir);
+				break;
+			default:
+				break;
+		}
+	}
+
 	for (intpos i = 0; i < 3; ++i) {
 		struct base_rotation rotation = rotations[i];
 		if (rotation.face == NONE) continue;
@@ -174,10 +206,15 @@ void make_move(struct cube *cube, struct move move) {
 			face_color *stickers[12];
 			face_color *stickers_old[12];
 			for (intpos face_i = 0, stickers_i = 0; face_i < 4; ++face_i) {
-				struct face_movement face = face_movement[rotation_face_i][face_i];
+				struct move_map move = moves_map[rotation_face_i][face_i];
 				for (intpos face_sticker_i = 0; face_sticker_i < 3; ++face_sticker_i, ++stickers_i) {
-					stickers[stickers_i] = &cube->faces[faces_map[face.face]].stickers[face.stickers[face_sticker_i]];
-					stickers_old[stickers_i] = &old_cube.faces[faces_map[face.face]].stickers[face.stickers[face_sticker_i]];
+					intpos face = faces_map[move.face];
+					intpos sticker = move.stickers[face_sticker_i];
+					stickers[stickers_i] = &cube->faces[face].stickers[sticker];
+					stickers_old[stickers_i] = &old_cube.faces[face].stickers[sticker];
+					if (animation) {
+						animation->stickers |= get_sticker_bitmask(face, sticker);
+					}
 				}
 			}
 
@@ -191,6 +228,9 @@ void make_move(struct cube *cube, struct move move) {
 				struct face *rotate_face = &cube->faces[rotation_face_i];
 				struct face old_face = old_cube.faces[rotation_face_i];
 
+				// bitmask for all 9 stickers
+				animation->stickers |= get_face_bitmask(rotation_face_i);
+
 				// rotate top stickers
 				rotate_face->top_right = old_face.top_left;
 				rotate_face->middle_right = old_face.top_center;
@@ -203,6 +243,7 @@ void make_move(struct cube *cube, struct move move) {
 			}
 		}
 	}
+
 	return;
 }
 
@@ -215,4 +256,12 @@ void reset_cube(struct cube *cube) {
 }
 
 void shuffle_cube(struct cube *cube) {
+}
+
+intpos get_sticker_bitmask(intpos face_no, intpos sticker_i) {
+	return 1 << (face_no * 9 + sticker_i);
+}
+
+intpos get_face_bitmask(intpos face_no) {
+	return 0777 << (face_no * 9);
 }

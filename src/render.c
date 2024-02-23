@@ -27,6 +27,25 @@ static float yaw = 20;
 void rotate_camera(float x, float y) {
 	yaw -= x;
 	pitch += y;
+	if (yaw > 360) yaw -= 360;
+	if (yaw < -360) yaw += 360;
+	if (pitch > 90) pitch = 90;
+	if (pitch < -90) pitch = -90;
+}
+
+static size_t rotations_i = 0;
+static struct sticker_rotations sticker_rotations[MAX_ANIMATIONS];
+
+void initialize_animations() {
+	memset(sticker_rotations, 0, sizeof(sticker_rotations));
+}
+
+void send_animation(struct sticker_rotations animation) {
+	sticker_rotations[rotations_i] = animation;
+
+	// acts as a ring buffer
+	++rotations_i;
+	rotations_i %= MAX_ANIMATIONS;
 }
 
 void render(struct cube *cube) {
@@ -35,6 +54,7 @@ void render(struct cube *cube) {
 	glEnable(GL_CULL_FACE);
 	glCullFace(GL_FRONT);
 	glFrontFace(GL_CW);
+    glEnable(GL_MULTISAMPLE);
 	glLoadIdentity();
 
 	glRotatef(pitch, -1.0f, 0.0f, 0.0f);

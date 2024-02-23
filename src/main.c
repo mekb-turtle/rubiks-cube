@@ -20,6 +20,10 @@ int main(int argc, char *argv[]) {
 	if (SDL_Init(SDL_INIT_VIDEO) != 0)
 		errx(1, "SDL_Init: %s", SDL_GetError());
 
+	// Anti-aliasing
+	SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 1);
+	SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, 8);
+
 	window = SDL_CreateWindow(WINDOW_TITLE,
 	                          SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
 	                          800, 600,
@@ -42,6 +46,8 @@ int main(int argc, char *argv[]) {
 
 	// Enable vsync
 	SDL_GL_SetSwapInterval(1);
+
+	initialize_animations();
 
 	glMatrixMode(GL_PROJECTION);
 	glLoadIdentity();
@@ -126,7 +132,9 @@ int main(int argc, char *argv[]) {
 								break;
 						}
 						if (invalid) continue;
-						make_move(&cube, move, NULL);
+						struct sticker_rotations animation;
+						make_move(&cube, move, &animation);
+						send_animation(animation);
 					}
 					break;
 				}
