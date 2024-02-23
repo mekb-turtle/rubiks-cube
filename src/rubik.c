@@ -8,6 +8,23 @@ char get_char_move_direction(enum move_direction dir) {
 	return "\0'2"[dir];
 }
 
+static struct base_rotation {
+	enum rotation_face {
+		NONE = 0,
+		FACE_U = 'U',
+		FACE_R = 'R',
+		FACE_F = 'F',
+		FACE_D = 'D',
+		FACE_L = 'L',
+		FACE_B = 'B',
+		FACE_M = 'M',
+		FACE_E = 'E',
+		FACE_S = 'S',
+	} face;
+	enum move_direction dir;
+	Uint32 move_time;
+};
+
 #define flip_dir(dir_) (dir_ == cw ? ccw : dir_ == ccw ? cw \
 	                                                   : dir_)
 
@@ -55,7 +72,7 @@ static const struct face_movement {
         {{U, {middle_left, middle_center, middle_right}}, {R, {top_center, middle_center, bottom_center}}, {D, {middle_right, middle_center, middle_left}}, {L, {bottom_center, middle_center, top_center}}},
 };
 
-void make_move(struct cube *cube, struct move move, struct base_rotation (*rotations_)[3]) {
+void make_move(struct cube *cube, struct move move) {
 	struct base_rotation rotations[3] = {
 	        {.face = NONE},
 	        {.face = NONE},
@@ -186,10 +203,6 @@ void make_move(struct cube *cube, struct move move, struct base_rotation (*rotat
 			}
 		}
 	}
-
-	// copy rotations to pointer, used for animations
-	for (intpos i = 0; i < 3; ++i)
-		(*rotations_)[i] = rotations[i];
 	return;
 }
 
