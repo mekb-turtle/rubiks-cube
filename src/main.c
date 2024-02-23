@@ -47,13 +47,9 @@ int main(int argc, char *argv[]) {
 	// Enable vsync
 	SDL_GL_SetSwapInterval(1);
 
-	initialize_animations();
-
-	glMatrixMode(GL_PROJECTION);
-	glLoadIdentity();
-	glOrtho(-1.0f, 1.0f, 1.0f, -1.0f, -1.0f, 1.0f);
-	glMatrixMode(GL_MODELVIEW);
-	glLoadIdentity();
+	if (!initialize_render()) {
+		return 1;
+	}
 
 	SDL_Point window_size;
 	SDL_Point render_size;
@@ -134,6 +130,7 @@ int main(int argc, char *argv[]) {
 						if (invalid) continue;
 						struct sticker_rotations animation;
 						make_move(&cube, move, &animation);
+						animation.start_time = SDL_GetTicks();
 						send_animation(animation);
 					}
 					break;
@@ -167,8 +164,6 @@ int main(int argc, char *argv[]) {
 		}
 
 		glViewport((window_size.x - render_size.x) / 2, (window_size.y - render_size.y) / 2, render_size.x, render_size.y);
-
-		glClear(GL_COLOR_BUFFER_BIT);
 
 		render(&cube);
 
