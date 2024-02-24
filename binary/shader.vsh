@@ -35,5 +35,5 @@ void main() {
 	pos = yawRotation * pitchRotation * pos;
 
 	gl_Position = vec4(pos, 1.0);
-	vertexColor = vec3(0, 1, 0);
+	vertexColor = vec3(1, (look.y+90)/180, 1);
 }

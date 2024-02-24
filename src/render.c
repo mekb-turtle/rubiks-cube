@@ -38,25 +38,25 @@ void rotate_camera(float x, float y) {
 static size_t rotations_i = 0;
 static struct sticker_rotations sticker_rotations[MAX_ANIMATIONS];
 
-struct vec3 {
-	float x, y, z;
-};
+// vertex generation for the cube
 
 struct rect {
-	union {
-		struct {
-			struct vec3 a, b, c, d;
+	struct vec3 {
+		union {
+			struct {
+				float x, y, z;
+			};
+			float points[3];
 		};
-		struct vec3 vec[4];
-	};
+	} vec[4];
 };
 
 static struct rect rect(float ax, float ay, float az, float bx, float by, float bz, float cx, float cy, float cz, float dx, float dy, float dz) {
 	return (struct rect){
-	        (struct vec3){ax, ay, az},
-	        (struct vec3){bx, by, bz},
-	        (struct vec3){cx, cy, cz},
-	        (struct vec3){dx, dy, dz}
+	        (struct vec3){{{ax, ay, az}}},
+	        (struct vec3){{{bx, by, bz}}},
+	        (struct vec3){{{cx, cy, cz}}},
+	        (struct vec3){{{dx, dy, dz}}}
     };
 }
 
@@ -104,7 +104,23 @@ extern const char binary_shader_vsh[];
 extern int binary_shader_fsh_len;
 extern int binary_shader_vsh_len;
 
-static GLuint vbo_vertices, vao_vertices, shader_program;
+static GLuint vbo_vertices = 0, vao_vertices = 0, shader_program = 0;
+
+static void add_vec(float *values, size_t *len, struct vec3 vec3) {
+	for (intpos j = 0; j < 3; ++j) {
+		values[*len] = vec3.points[j];
+		(*len)++;
+	}
+}
+
+static void add_rect(float *values, size_t *len, struct rect rect) {
+	add_vec(values, len, rect.vec[0]);
+	add_vec(values, len, rect.vec[1]);
+	add_vec(values, len, rect.vec[3]);
+	add_vec(values, len, rect.vec[1]);
+	add_vec(values, len, rect.vec[2]);
+	add_vec(values, len, rect.vec[3]);
+}
 
 bool initialize_render() {
 	GLuint vertex_shader = 0, fragment_shader = 0;
@@ -158,73 +174,48 @@ bool initialize_render() {
 	glDeleteShader(vertex_shader);
 	glDeleteShader(fragment_shader);
 
-	// Set up vertex data and buffers
-	struct rect rects[20 * 6] = {};
+	const size_t vertices_size = 120 * 18 * sizeof(float);
+	size_t vertex_i = 0;
+	float *vertices = malloc(vertices_size); // 20 rectangles for 6 sides, every rectangle is 2 polygons which is 3 vertices each, which have 3 values for xyz
+	if (!vertices) {
+		warn("Failed to allocate vertices");
+		goto error;
+	}
 
-	for (intpos face_i = 0, rect_i = 0; face_i < 6; ++face_i) {
+	for (intpos face_i = 0; face_i < 6; ++face_i) {
 		for (intpos sticker_i = 0; sticker_i < 9; ++sticker_i) {
 			float s_x = (float) (sticker_i % 3) - 1;
 			float s_y = (float) (sticker_i / 3) - 1;
 
 			// square on the cube
-			rects[rect_i++] = transform_rect(rect(
-			                                         s_x - sticker_size, s_y - sticker_size, cube_size + outer_size,
-			                                         s_x - sticker_size, s_y + sticker_size, cube_size + outer_size,
-			                                         s_x + sticker_size, s_y + sticker_size, cube_size + outer_size,
-			                                         s_x + sticker_size, s_y - sticker_size, cube_size + outer_size),
-			                                 face_i, cube_scale);
+			add_rect(vertices, &vertex_i, transform_rect(rect(s_x - sticker_size, s_y - sticker_size, cube_size + outer_size, s_x - sticker_size, s_y + sticker_size, cube_size + outer_size, s_x + sticker_size, s_y + sticker_size, cube_size + outer_size, s_x + sticker_size, s_y - sticker_size, cube_size + outer_size), face_i, cube_scale));
 
 			// square out of the cube (for seeing back faces)
-			rects[rect_i++] = transform_rect(rect(
-			                                         s_x - sticker_size, s_y - sticker_size, cube_size + gap_size - outer_size,
-			                                         s_x + sticker_size, s_y - sticker_size, cube_size + gap_size - outer_size,
-			                                         s_x + sticker_size, s_y + sticker_size, cube_size + gap_size - outer_size,
-			                                         s_x - sticker_size, s_y + sticker_size, cube_size + gap_size - outer_size),
-			                                 face_i, cube_scale);
+			add_rect(vertices, &vertex_i, transform_rect(rect(s_x - sticker_size, s_y - sticker_size, cube_size + gap_size - outer_size, s_x + sticker_size, s_y - sticker_size, cube_size + gap_size - outer_size, s_x + sticker_size, s_y + sticker_size, cube_size + gap_size - outer_size, s_x - sticker_size, s_y + sticker_size, cube_size + gap_size - outer_size), face_i, cube_scale));
 		}
 
 		// black border to prevent seeing inside cube
-		rects[rect_i++] = transform_rect(rect(
-		                                         -cube_size, -cube_size, cube_size - inner_size,
-		                                         -cube_size, +cube_size, cube_size - inner_size,
-		                                         +cube_size, +cube_size, cube_size - inner_size,
-		                                         +cube_size, -cube_size, cube_size - inner_size),
-		                                 face_i, cube_scale);
+		add_rect(vertices, &vertex_i, transform_rect(rect(-cube_size, -cube_size, cube_size - inner_size, -cube_size, +cube_size, cube_size - inner_size, +cube_size, +cube_size, cube_size - inner_size, +cube_size, -cube_size, cube_size - inner_size), face_i, cube_scale));
 
 		// same but outside of cube
-		rects[rect_i++] = transform_rect(rect(
-		                                         -cube_size, -cube_size, cube_size + gap_size + inner_size,
-		                                         -cube_size, +cube_size, cube_size + gap_size + inner_size,
-		                                         +cube_size, +cube_size, cube_size + gap_size + inner_size,
-		                                         +cube_size, -cube_size, cube_size + gap_size + inner_size),
-		                                 face_i, cube_scale);
+		add_rect(vertices, &vertex_i, transform_rect(rect(-cube_size, -cube_size, cube_size + gap_size + inner_size, -cube_size, +cube_size, cube_size + gap_size + inner_size, +cube_size, +cube_size, cube_size + gap_size + inner_size, +cube_size, -cube_size, cube_size + gap_size + inner_size), face_i, cube_scale));
 	}
 
-	for (int i = 0; i < (20 * 6); ++i) {
-		struct rect rect = rects[i];
-		printf("Rect %i:", i);
-		for (int j = 0; j < 4; ++j) {
-			struct vec3 vec = rect.vec[j];
-			printf(" (%f %f %f)", vec.x, vec.y, vec.z);
-		}
-		printf("\n");
-	}
-
+	// Set up vertex data and buffers
 	glGenVertexArrays(1, &vao_vertices);
 	glGenBuffers(1, &vbo_vertices);
 	glBindVertexArray(vao_vertices);
 
 	glBindBuffer(GL_ARRAY_BUFFER, vbo_vertices);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(rects), rects, GL_STATIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, vertices_size, vertices, GL_STATIC_DRAW);
 
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void *) 0);
+	// Set up vertex attribute pointers for positions
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 9 * sizeof(float), 0);
 	glEnableVertexAttribArray(0);
-
-	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void *) (3 * sizeof(float)));
-	glEnableVertexAttribArray(1);
 
 	return true;
 error:
+	if (shader_program) glDeleteProgram(shader_program);
 	if (vertex_shader) glDeleteShader(vertex_shader);
 	if (fragment_shader) glDeleteShader(fragment_shader);
 	return false;
@@ -243,7 +234,7 @@ void update_cube(struct cube *cube) {
 
 void render() {
 	// Clear
-	glClearColor(0.5, 0.5, 0.5, 1.0);
+	glClearColor(0, 0, 0, 1.0);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	// Options
