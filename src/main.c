@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdbool.h>
 #include "err.h"
 
 #include <SDL2/SDL.h>
@@ -12,6 +13,7 @@ struct cube cube;
 
 int main(int argc, char *argv[]) {
 	int ret = 1;
+	bool render_init = false;
 
 	// region SDL initialization
 	SDL_Window *window = NULL;
@@ -47,13 +49,13 @@ int main(int argc, char *argv[]) {
 	// Enable vsync
 	SDL_GL_SetSwapInterval(1);
 
-	initialize_animations();
+	if (!initialize_render()) {
+		goto exit;
+	}
 
-	glMatrixMode(GL_PROJECTION);
-	glLoadIdentity();
-	glOrtho(-1.0f, 1.0f, 1.0f, -1.0f, -1.0f, 1.0f);
-	glMatrixMode(GL_MODELVIEW);
-	glLoadIdentity();
+	render_init = 1;
+
+	update_cube(&cube);
 
 	SDL_Point window_size;
 	SDL_Point render_size;
@@ -134,7 +136,9 @@ int main(int argc, char *argv[]) {
 						if (invalid) continue;
 						struct sticker_rotations animation;
 						make_move(&cube, move, &animation);
+						animation.start_time = SDL_GetTicks();
 						send_animation(animation);
+						update_cube(&cube);
 					}
 					break;
 				}
@@ -168,14 +172,12 @@ int main(int argc, char *argv[]) {
 
 		glViewport((window_size.x - render_size.x) / 2, (window_size.y - render_size.y) / 2, render_size.x, render_size.y);
 
-		glClear(GL_COLOR_BUFFER_BIT);
-
 		render(&cube);
 
 		GLenum error = glGetError();
 		if (error != GL_NO_ERROR) {
 			warnx("OpenGL error: %i", error);
-			return true;
+			goto exit;
 		}
 
 		SDL_GL_SwapWindow(window);
@@ -183,6 +185,7 @@ int main(int argc, char *argv[]) {
 
 	ret = 0;
 exit:
+	if (render_init) unload();
 	if (context) SDL_GL_DeleteContext(context);
 	if (window) SDL_DestroyWindow(window);
 	SDL_Quit();

@@ -8,22 +8,25 @@ typedef uint8_t intpos;
 typedef uint8_t face_color;
 
 struct cube {
-	struct face {
-		union {
-			face_color stickers[9];
-			struct {
-				face_color top_left;
-				face_color top_center;
-				face_color top_right;
-				face_color middle_left;
-				face_color middle_center;
-				face_color middle_right;
-				face_color bottom_left;
-				face_color bottom_center;
-				face_color bottom_right;
+	union {
+		struct face {
+			union {
+				face_color stickers[9];
+				struct {
+					face_color top_left;
+					face_color top_center;
+					face_color top_right;
+					face_color middle_left;
+					face_color middle_center;
+					face_color middle_right;
+					face_color bottom_left;
+					face_color bottom_center;
+					face_color bottom_right;
+				};
 			};
-		};
-	} faces[6];
+		} faces[6];
+		face_color stickers[9 * 6];
+	};
 };
 
 enum stickers {
@@ -80,7 +83,7 @@ struct sticker_rotations {
 	} axis;
 	enum move_direction dir;
 	uint64_t stickers; // bitmask of what stickers to rotate
-		Uint32 start_time; // SDL_GetTicks
+	Uint32 start_time; // SDL_GetTicks
 };
 
 #define move(face_, dir_) ((struct move){.face = (face_), .dir = (dir_)})

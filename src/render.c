@@ -1,31 +1,18 @@
-#include <SDL2/SDL_opengl.h>
 #include <stdio.h>
 #include "err.h"
-#include <math.h>
 #include "render.h"
+#include "util.h"
+#define GL_GLEXT_PROTOTYPES
+#include <SDL2/SDL_opengl.h>
+
+#define RENDER
 #include "./config.h"
 
-static const float colors[6 * 3] = {
-        COLOR_0,
-        COLOR_1,
-        COLOR_2,
-        COLOR_3,
-        COLOR_4,
-        COLOR_5,
-};
-
-static const float whole_size = 0.2f;
-static const float sticker_size = 0.475f;
-static const float cube_size = 1.5f;
-static const float inner_size = 0.003f;
-static const float outer_size = 0;
-static const float gap_size = 2.0f;
-
+static float yaw = -20;
 static float pitch = 20;
-static float yaw = 20;
 
 void rotate_camera(float x, float y) {
-	yaw -= x;
+	yaw += x;
 	pitch += y;
 	if (yaw > 360) yaw -= 360;
 	if (yaw < -360) yaw += 360;
@@ -33,11 +20,225 @@ void rotate_camera(float x, float y) {
 	if (pitch < -90) pitch = -90;
 }
 
+// maximum amount of animations at a time
+// make sure this is the same as in the vertex shader
+#define MAX_ANIMATIONS 6
+
 static size_t rotations_i = 0;
 static struct sticker_rotations sticker_rotations[MAX_ANIMATIONS];
 
-void initialize_animations() {
+// vertex generation for the cube
+
+
+static struct vec3 transform_vec3(struct vec3 vec, intpos face, float scale) {
+	struct vec3 ret = vec;
+
+	// transform a vec3 so it's on a certain face
+	switch (face) {
+		case 0:
+			ret.y = -vec.z;
+			ret.z = vec.y;
+			break;
+		case 1:
+			break;
+		case 2:
+			ret.x = vec.z;
+			ret.z = -vec.x;
+			break;
+		case 3:
+			ret.x = -vec.x;
+			ret.z = -vec.z;
+			break;
+		case 4:
+			ret.x = -vec.z;
+			ret.z = vec.x;
+			break;
+		case 5:
+			ret.y = vec.z;
+			ret.z = -vec.y;
+			break;
+	}
+
+	// scale the vector
+	ret.x *= scale;
+	ret.y *= scale;
+	ret.z *= scale;
+	return ret;
+}
+
+static struct rect transform_rect(struct rect rect, intpos face, float scale) {
+	for (intpos i = 0; i < 4; ++i) {
+		rect.vec[i] = transform_vec3(rect.vec[i], face, scale);
+	}
+	return rect;
+}
+
+extern const char binary_shader_fsh[];
+extern const char binary_shader_vsh[];
+extern int binary_shader_fsh_len;
+extern int binary_shader_vsh_len;
+
+static GLuint vbo_vertex_positions = 0, vbo_vertex_colors = 0, vao = 0, shader_program = 0;
+
+static void add_vec3(float *values, size_t *len, struct vec3 vec3) {
+	for (intpos j = 0; j < 3; ++j) {
+		float f = vec3.points[j];
+		values[*len] = f;
+		(*len)++;
+	}
+}
+
+static void add_tri(float *values, size_t *len, struct tri tri) {
+	add_vec3(values, len, tri.vec[0]);
+	add_vec3(values, len, tri.vec[1]);
+	add_vec3(values, len, tri.vec[2]);
+}
+
+static void add_rect(float *values, size_t *len, struct rect rect) {
+	add_tri(values, len, tri(rect.vec[0], rect.vec[1], rect.vec[3]));
+	add_tri(values, len, tri(rect.vec[1], rect.vec[2], rect.vec[3]));
+}
+
+// 9 stickers with 4 rectangles each, 6 sides, every rectangle is 2 polygons which is 3 vertices each, which have 3 values for xyz
+static const size_t vertices_count = 9 * 4 * 6 * 2 * 3;
+static const size_t vertices_size = vertices_count * 3 * sizeof(float);
+
+static float *vertex_colors = NULL;
+
+void unload() {
+	if (shader_program) glDeleteProgram(shader_program);
+	if (vertex_colors) free(vertex_colors);
+}
+
+static void send_color_vbo();
+
+bool initialize_render() {
+	GLuint vertex_shader = 0, fragment_shader = 0;
+
+	// Clear rotation animation
 	memset(sticker_rotations, 0, sizeof(sticker_rotations));
+
+	int success;
+	char infoLog[512];
+
+	const char *const shader_fsh = binary_shader_fsh;
+	const char *const shader_vsh = binary_shader_vsh;
+
+	// Compile vertex shader
+	vertex_shader = glCreateShader(GL_VERTEX_SHADER);
+	glShaderSource(vertex_shader, 1, &shader_vsh, &binary_shader_vsh_len);
+	glCompileShader(vertex_shader);
+
+	glGetShaderiv(vertex_shader, GL_COMPILE_STATUS, &success);
+	if (!success) {
+		glGetShaderInfoLog(vertex_shader, 512, NULL, infoLog);
+		fprintf(stderr, "Error compiling vertex shader\n%s\n", infoLog);
+		goto error;
+	}
+
+	// Compile fragment shader
+	fragment_shader = glCreateShader(GL_FRAGMENT_SHADER);
+	glShaderSource(fragment_shader, 1, &shader_fsh, &binary_shader_fsh_len);
+	glCompileShader(fragment_shader);
+
+	glGetShaderiv(fragment_shader, GL_COMPILE_STATUS, &success);
+	if (!success) {
+		glGetShaderInfoLog(fragment_shader, 512, NULL, infoLog);
+		fprintf(stderr, "Error compiling fragment shader\n%s\n", infoLog);
+		goto error;
+	}
+
+	// Create shader program
+	shader_program = glCreateProgram();
+	glAttachShader(shader_program, vertex_shader);
+	glAttachShader(shader_program, fragment_shader);
+	glLinkProgram(shader_program);
+
+	glGetProgramiv(shader_program, GL_LINK_STATUS, &success);
+	if (!success) {
+		glGetShaderInfoLog(shader_program, 512, NULL, infoLog);
+		fprintf(stderr, "Error linking program\n%s\n", infoLog);
+		goto error;
+	}
+
+	glDeleteShader(vertex_shader);
+	glDeleteShader(fragment_shader);
+
+	// stores position of each vertex
+	size_t vertex_i = 0;
+	float *vertex_positions = malloc(vertices_size);
+	if (!vertex_positions) {
+		warn("Failed to allocate vertex positions");
+		goto error;
+	}
+
+	// initialize vertices
+	for (intpos face_i = 0; face_i < 6; ++face_i) {
+		for (intpos sticker_i = 0; sticker_i < 9; ++sticker_i) {
+			float s_x = ((float) (sticker_i % 3) - 1) * sticker_distance;
+			float s_y = ((float) (sticker_i / 3) - 1) * sticker_distance;
+
+			// square on the cube
+			add_rect(vertex_positions, &vertex_i, transform_rect(rect(vec3(s_x - sticker_size, s_y - sticker_size, cube_size + outwards_offset), vec3(s_x - sticker_size, s_y + sticker_size, cube_size + outwards_offset), vec3(s_x + sticker_size, s_y + sticker_size, cube_size + outwards_offset), vec3(s_x + sticker_size, s_y - sticker_size, cube_size + outwards_offset)), face_i, cube_scale));
+
+			// square out of the cube (for seeing back faces)
+			add_rect(vertex_positions, &vertex_i, transform_rect(rect(vec3(s_x - sticker_size, s_y - sticker_size, cube_size + back_face_distance - outwards_offset), vec3(s_x + sticker_size, s_y - sticker_size, cube_size + back_face_distance - outwards_offset), vec3(s_x + sticker_size, s_y + sticker_size, cube_size + back_face_distance - outwards_offset), vec3(s_x - sticker_size, s_y + sticker_size, cube_size + back_face_distance - outwards_offset)), face_i, cube_scale));
+
+			// black border to prevent seeing inside cube
+			add_rect(vertex_positions, &vertex_i, transform_rect(rect(vec3(s_x - sticker_inner_size, s_y - sticker_inner_size, cube_size + inwards_offset), vec3(s_x - sticker_inner_size, s_y + sticker_inner_size, cube_size + inwards_offset), vec3(s_x + sticker_inner_size, s_y + sticker_inner_size, cube_size + inwards_offset), vec3(s_x + sticker_inner_size, s_y - sticker_inner_size, cube_size + inwards_offset)), face_i, cube_scale));
+
+			// same but outside of cube
+			add_rect(vertex_positions, &vertex_i, transform_rect(rect(vec3(s_x - sticker_inner_size, s_y - sticker_inner_size, cube_size + back_face_distance - inwards_offset), vec3(s_x + sticker_inner_size, s_y - sticker_inner_size, cube_size + back_face_distance - inwards_offset), vec3(s_x + sticker_inner_size, s_y + sticker_inner_size, cube_size + back_face_distance - inwards_offset), vec3(s_x - sticker_inner_size, s_y + sticker_inner_size, cube_size + back_face_distance - inwards_offset)), face_i, cube_scale));
+		}
+	}
+
+	glGenVertexArrays(1, &vao);
+	glBindVertexArray(vao);
+
+	// Set up vertex data and buffers
+	glGenBuffers(1, &vbo_vertex_positions);
+	glBindBuffer(GL_ARRAY_BUFFER, vbo_vertex_positions);
+	glBufferData(GL_ARRAY_BUFFER, vertices_size, vertex_positions, GL_STATIC_DRAW);
+	free(vertex_positions);
+
+	// Set up vertex attribute pointers for positions
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void *) 0);
+	glEnableVertexAttribArray(0);
+
+	// stores color of each vertex
+	// luckily XYZ is same size as RGB so we can use the same size
+	vertex_colors = malloc(vertices_size);
+	if (!vertex_colors) {
+		warn("Failed to allocate vertex colors");
+		goto error;
+	}
+
+	memset(vertex_colors, 0, vertices_size);
+
+	glGenBuffers(1, &vbo_vertex_colors);
+	send_color_vbo();
+
+	glBindVertexArray(vao);
+	// Set up color attribute pointers for positions
+	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void *) 0);
+	glEnableVertexAttribArray(1);
+
+	glBindVertexArray(0);
+
+	return true;
+error:
+	if (shader_program) glDeleteProgram(shader_program);
+	if (vertex_shader) glDeleteShader(vertex_shader);
+	if (fragment_shader) glDeleteShader(fragment_shader);
+	return false;
+}
+
+static void send_color_vbo() {
+	// Set up color data and buffers
+	glBindVertexArray(vao);
+	glBindBuffer(GL_ARRAY_BUFFER, vbo_vertex_colors);
+	glBufferData(GL_ARRAY_BUFFER, vertices_size, vertex_colors, GL_STATIC_DRAW);
+	glBindVertexArray(0);
 }
 
 void send_animation(struct sticker_rotations animation) {
@@ -48,75 +249,48 @@ void send_animation(struct sticker_rotations animation) {
 	rotations_i %= MAX_ANIMATIONS;
 }
 
-void render(struct cube *cube) {
+void update_cube(struct cube *cube) {
+	// inner color (usually black)
+	struct vec3 inner_color = colors[0];
+	struct rect inner_color_rect = rect(inner_color, inner_color, inner_color, inner_color);
+
+	size_t vertex_i = 0;
+	for (intpos face_i = 0; face_i < 6; ++face_i) {
+		for (intpos sticker_i = 0; sticker_i < 9; ++sticker_i) {
+			// get color of sticker
+			face_color face_color = cube->faces[face_i].stickers[sticker_i];
+			struct vec3 color = colors[face_color + 1];
+			struct rect color_rect = rect(color, color, color, color);
+			add_rect(vertex_colors, &vertex_i, color_rect);
+			add_rect(vertex_colors, &vertex_i, color_rect);
+			add_rect(vertex_colors, &vertex_i, inner_color_rect);
+			add_rect(vertex_colors, &vertex_i, inner_color_rect);
+		}
+	}
+
+	send_color_vbo();
+}
+
+void render() {
+	// Clear
+	glClearColor(0.1, 0, 0, 1.0);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+	// Options
 	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_CULL_FACE);
 	glCullFace(GL_FRONT);
 	glFrontFace(GL_CW);
-    glEnable(GL_MULTISAMPLE);
-	glLoadIdentity();
+	glEnable(GL_MULTISAMPLE); // Anti-aliasing
 
-	glRotatef(pitch, -1.0f, 0.0f, 0.0f);
+	// Draw program
 
-	glRotatef(yaw, 0.0f, -1.0f, 0.0f);
+	glUseProgram(shader_program);
 
-	glScalef(whole_size, whole_size, whole_size);
+	GLint look = glGetUniformLocation(shader_program, "look");
+	if (look >= 0) glUniform2f(look, yaw, pitch);
 
-	for (intpos face_i = 0; face_i < 6; ++face_i) {
-		glPushMatrix();
-
-		switch (face_i) {
-			case 0:
-				glRotatef(90.0f, 1.0f, 0.0f, 0.0f);
-				break;
-			case 1:
-				break;
-			case 2:
-				glRotatef(90.0f, 0.0f, 1.0f, 0.0f);
-				break;
-			case 3:
-				glRotatef(180.0f, 0.0f, 1.0f, 0.0f);
-				break;
-			case 4:
-				glRotatef(-90.0f, 0.0f, 1.0f, 0.0f);
-				break;
-			case 5:
-				glRotatef(-90.0f, 1.0f, 0.0f, 0.0f);
-				break;
-		}
-
-		//TODO: animate making a move
-		glBegin(GL_QUADS);
-		for (intpos sticker_i = 0; sticker_i < 9; ++sticker_i) {
-			struct face *face = &cube->faces[face_i];
-			face_color *sticker = &face->stickers[sticker_i];
-			const float *c = &colors[*sticker * 3];
-			glColor3f(c[0], c[1], c[2]);
-
-			float s_x = (float) (sticker_i % 3) - 1;
-			float s_y = (float) (sticker_i / 3) - 1;
-
-			// draw on cube
-			glVertex3f(s_x - sticker_size, s_y - sticker_size, cube_size + outer_size);
-			glVertex3f(s_x - sticker_size, s_y + sticker_size, cube_size + outer_size);
-			glVertex3f(s_x + sticker_size, s_y + sticker_size, cube_size + outer_size);
-			glVertex3f(s_x + sticker_size, s_y - sticker_size, cube_size + outer_size);
-
-			// draw out of cube (for seeing back faces)
-			glVertex3f(s_x - sticker_size, s_y - sticker_size, cube_size + gap_size);
-			glVertex3f(s_x + sticker_size, s_y - sticker_size, cube_size + gap_size);
-			glVertex3f(s_x + sticker_size, s_y + sticker_size, cube_size + gap_size);
-			glVertex3f(s_x - sticker_size, s_y + sticker_size, cube_size + gap_size);
-		}
-
-		glColor3f(0, 0, 0);
-		glVertex3f(-cube_size, -cube_size, cube_size - inner_size);
-		glVertex3f(-cube_size, +cube_size, cube_size - inner_size);
-		glVertex3f(+cube_size, +cube_size, cube_size - inner_size);
-		glVertex3f(+cube_size, -cube_size, cube_size - inner_size);
-		glEnd();
-
-		glPopMatrix();
-	}
+	glBindVertexArray(vao);
+	glDrawArrays(GL_TRIANGLES, 0, vertices_count);
+	glBindVertexArray(0);
 }
