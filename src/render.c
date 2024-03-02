@@ -273,7 +273,7 @@ void update_cube(struct cube *cube) {
 
 void render() {
 	// Clear
-	glClearColor(0.1, 0, 0, 1.0);
+	glClearColor(background_color.x, background_color.y, background_color.z, 1.0);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	// Options
