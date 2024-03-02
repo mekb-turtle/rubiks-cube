@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdbool.h>
 #include "err.h"
 
 #include <SDL2/SDL.h>
@@ -12,6 +13,7 @@ struct cube cube;
 
 int main(int argc, char *argv[]) {
 	int ret = 1;
+	bool render_init = false;
 
 	// region SDL initialization
 	SDL_Window *window = NULL;
@@ -48,8 +50,12 @@ int main(int argc, char *argv[]) {
 	SDL_GL_SetSwapInterval(1);
 
 	if (!initialize_render()) {
-		return 1;
+		goto exit;
 	}
+
+	render_init = 1;
+
+	update_cube(&cube);
 
 	SDL_Point window_size;
 	SDL_Point render_size;
@@ -132,6 +138,7 @@ int main(int argc, char *argv[]) {
 						make_move(&cube, move, &animation);
 						animation.start_time = SDL_GetTicks();
 						send_animation(animation);
+						update_cube(&cube);
 					}
 					break;
 				}
@@ -170,7 +177,7 @@ int main(int argc, char *argv[]) {
 		GLenum error = glGetError();
 		if (error != GL_NO_ERROR) {
 			warnx("OpenGL error: %i", error);
-			return true;
+			goto exit;
 		}
 
 		SDL_GL_SwapWindow(window);
@@ -178,6 +185,7 @@ int main(int argc, char *argv[]) {
 
 	ret = 0;
 exit:
+	if (render_init) unload();
 	if (context) SDL_GL_DeleteContext(context);
 	if (window) SDL_DestroyWindow(window);
 	SDL_Quit();

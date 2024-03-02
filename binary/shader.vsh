@@ -1,39 +1,35 @@
 #version 330 core
 
-in vec3 aPosition;
+layout(location = 0) in vec3 position;
+layout(location = 1) in vec3 color;
 out vec3 vertexColor;
 uniform vec2 look;
 
-mat3 rotationMatrix(float angle, vec3 axis) {
-	float s = sin(angle);
+vec3 rotateVector(vec3 v, vec3 axis, float angle) {
 	float c = cos(angle);
-	float oc = 1.0 - c;
-	vec3 asq = axis * axis;
+	float s = sin(angle);
 
-	return mat3(
-	        asq.x + c * (1.0 - asq.x),
-	        axis.x * axis.y * oc + axis.z * s,
-	        axis.x * axis.z * oc - axis.y * s,
+	vec3 rotatedVec = v * c +
+	                  cross(axis, v) * s +
+	                  axis * dot(axis, v) * (1.0 - c);
 
-	        axis.x * axis.y * oc - axis.z * s,
-	        asq.y + c * (1.0 - asq.y),
-	        axis.y * axis.z * oc + axis.x * s,
-
-	        axis.x * axis.z * oc + axis.y * s,
-	        axis.y * axis.z * oc - axis.x * s,
-	        asq.z + c * (1.0 - asq.z));
+	return rotatedVec;
 }
 
+const float PI = 3.14159265358979323846;
+
 void main() {
-	vec3 pos = aPosition;
+	vec3 pos = position;
 
-	// Rotation around X-axis (pitch)
-	mat3 pitchRotation = rotationMatrix(radians(look.y), vec3(-1.0, 0.0, 0.0));
-	// Rotation around Y-axis (yaw)
-	mat3 yawRotation = rotationMatrix(radians(look.x), vec3(0.0, -1.0, 0.0));
+	pos = rotateVector(pos, vec3(-1.0, 0.0, 0.0), PI);
 
-	pos = yawRotation * pitchRotation * pos;
+	// Rotation around Y-axis (pitch)
+	pos = rotateVector(pos, vec3(0.0, -1.0, 0.0), radians(look.x));
+
+	// Rotation around X-axis (yaw)
+	pos = rotateVector(pos, vec3(-1.0, 0.0, 0.0), radians(look.y));
 
 	gl_Position = vec4(pos, 1.0);
-	vertexColor = vec3(1, (look.y+90)/180, 1);
+
+	vertexColor = color;
 }
