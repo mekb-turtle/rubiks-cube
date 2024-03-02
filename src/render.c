@@ -40,7 +40,7 @@ static struct sticker_rotations sticker_rotations[MAX_ANIMATIONS];
 
 // vertex generation for the cube
 
-struct rect {
+struct tri {
 	struct vec3 {
 		union {
 			struct {
@@ -48,15 +48,26 @@ struct rect {
 			};
 			float points[3];
 		};
-	} vec[4];
+	} vec[3];
 };
 
-static struct rect rect(float ax, float ay, float az, float bx, float by, float bz, float cx, float cy, float cz, float dx, float dy, float dz) {
+struct rect {
+	struct vec3 vec[4];
+};
+
+static struct vec3 vec3(float x, float y, float z) {
+	return (struct vec3){{{x, y, z}}};
+}
+
+static struct tri tri(struct vec3 a, struct vec3 b, struct vec3 c) {
+	return (struct tri){
+	        {a, b, c}
+    };
+}
+
+static struct rect rect(struct vec3 a, struct vec3 b, struct vec3 c, struct vec3 d) {
 	return (struct rect){
-	        (struct vec3){{{ax, ay, az}}},
-	        (struct vec3){{{bx, by, bz}}},
-	        (struct vec3){{{cx, cy, cz}}},
-	        (struct vec3){{{dx, dy, dz}}}
+	        {a, b, c, d}
     };
 }
 
@@ -106,20 +117,23 @@ extern int binary_shader_vsh_len;
 
 static GLuint vbo_vertices = 0, vao_vertices = 0, shader_program = 0;
 
-static void add_vec(float *values, size_t *len, struct vec3 vec3) {
+static void add_vec3(float *values, size_t *len, struct vec3 vec3) {
 	for (intpos j = 0; j < 3; ++j) {
-		values[*len] = vec3.points[j];
+		float f = vec3.points[j];
+		values[*len] = f;
 		(*len)++;
 	}
 }
 
+static void add_tri(float *values, size_t *len, struct tri tri) {
+	add_vec3(values, len, tri.vec[0]);
+	add_vec3(values, len, tri.vec[1]);
+	add_vec3(values, len, tri.vec[2]);
+}
+
 static void add_rect(float *values, size_t *len, struct rect rect) {
-	add_vec(values, len, rect.vec[0]);
-	add_vec(values, len, rect.vec[1]);
-	add_vec(values, len, rect.vec[3]);
-	add_vec(values, len, rect.vec[1]);
-	add_vec(values, len, rect.vec[2]);
-	add_vec(values, len, rect.vec[3]);
+	add_tri(values, len, tri(rect.vec[0], rect.vec[1], rect.vec[3]));
+	add_tri(values, len, tri(rect.vec[1], rect.vec[2], rect.vec[3]));
 }
 
 bool initialize_render() {
@@ -188,17 +202,17 @@ bool initialize_render() {
 			float s_y = (float) (sticker_i / 3) - 1;
 
 			// square on the cube
-			add_rect(vertices, &vertex_i, transform_rect(rect(s_x - sticker_size, s_y - sticker_size, cube_size + outer_size, s_x - sticker_size, s_y + sticker_size, cube_size + outer_size, s_x + sticker_size, s_y + sticker_size, cube_size + outer_size, s_x + sticker_size, s_y - sticker_size, cube_size + outer_size), face_i, cube_scale));
+			add_rect(vertices, &vertex_i, transform_rect(rect(vec3(s_x - sticker_size, s_y - sticker_size, cube_size + outer_size), vec3(s_x - sticker_size, s_y + sticker_size, cube_size + outer_size), vec3(s_x + sticker_size, s_y + sticker_size, cube_size + outer_size), vec3(s_x + sticker_size, s_y - sticker_size, cube_size + outer_size)), face_i, cube_scale));
 
 			// square out of the cube (for seeing back faces)
-			add_rect(vertices, &vertex_i, transform_rect(rect(s_x - sticker_size, s_y - sticker_size, cube_size + gap_size - outer_size, s_x + sticker_size, s_y - sticker_size, cube_size + gap_size - outer_size, s_x + sticker_size, s_y + sticker_size, cube_size + gap_size - outer_size, s_x - sticker_size, s_y + sticker_size, cube_size + gap_size - outer_size), face_i, cube_scale));
+			add_rect(vertices, &vertex_i, transform_rect(rect(vec3(s_x - sticker_size, s_y - sticker_size, cube_size + gap_size - outer_size), vec3(s_x + sticker_size, s_y - sticker_size, cube_size + gap_size - outer_size), vec3(s_x + sticker_size, s_y + sticker_size, cube_size + gap_size - outer_size), vec3(s_x - sticker_size, s_y + sticker_size, cube_size + gap_size - outer_size)), face_i, cube_scale));
 		}
 
 		// black border to prevent seeing inside cube
-		add_rect(vertices, &vertex_i, transform_rect(rect(-cube_size, -cube_size, cube_size - inner_size, -cube_size, +cube_size, cube_size - inner_size, +cube_size, +cube_size, cube_size - inner_size, +cube_size, -cube_size, cube_size - inner_size), face_i, cube_scale));
+		add_rect(vertices, &vertex_i, transform_rect(rect(vec3(-cube_size, -cube_size, cube_size - inner_size), vec3(-cube_size, +cube_size, cube_size - inner_size), vec3(+cube_size, +cube_size, cube_size - inner_size), vec3(+cube_size, -cube_size, cube_size - inner_size)), face_i, cube_scale));
 
 		// same but outside of cube
-		add_rect(vertices, &vertex_i, transform_rect(rect(-cube_size, -cube_size, cube_size + gap_size + inner_size, -cube_size, +cube_size, cube_size + gap_size + inner_size, +cube_size, +cube_size, cube_size + gap_size + inner_size, +cube_size, -cube_size, cube_size + gap_size + inner_size), face_i, cube_scale));
+		add_rect(vertices, &vertex_i, transform_rect(rect(vec3(-cube_size, -cube_size, cube_size + gap_size + inner_size), vec3(-cube_size, +cube_size, cube_size + gap_size + inner_size), vec3(+cube_size, +cube_size, cube_size + gap_size + inner_size), vec3(+cube_size, -cube_size, cube_size + gap_size + inner_size)), face_i, cube_scale));
 	}
 
 	// Set up vertex data and buffers
@@ -210,7 +224,7 @@ bool initialize_render() {
 	glBufferData(GL_ARRAY_BUFFER, vertices_size, vertices, GL_STATIC_DRAW);
 
 	// Set up vertex attribute pointers for positions
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 9 * sizeof(float), 0);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), 0);
 	glEnableVertexAttribArray(0);
 
 	return true;
