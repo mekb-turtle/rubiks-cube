@@ -129,6 +129,9 @@ int main(int argc, char *argv[]) {
 							case 'S':
 								move.face = S;
 								break;
+							case ' ':
+								reset_camera();
+								break;
 							default:
 								invalid = true;
 								break;

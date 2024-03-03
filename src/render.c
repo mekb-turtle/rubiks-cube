@@ -8,8 +8,11 @@
 #define RENDER
 #include "./config.h"
 
-static float yaw = -20;
-static float pitch = 20;
+static float yaw, pitch;
+
+void reset_camera() {
+	yaw = -20, pitch = 20;
+}
 
 void rotate_camera(float x, float y) {
 	yaw += x;
@@ -118,6 +121,8 @@ extern const struct move_map moves_map[][4];
 extern const intpos faces_map[];
 
 bool initialize_render() {
+	reset_camera();
+
 	GLuint vertex_shader = 0, fragment_shader = 0;
 
 	// Clear rotation animation
