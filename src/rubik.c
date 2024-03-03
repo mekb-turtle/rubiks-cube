@@ -9,18 +9,7 @@ char get_char_move_direction(enum move_direction dir) {
 }
 
 struct base_rotation {
-	enum rotation_face {
-		NONE = 0,
-		FACE_U = 'U',
-		FACE_R = 'R',
-		FACE_F = 'F',
-		FACE_D = 'D',
-		FACE_L = 'L',
-		FACE_B = 'B',
-		FACE_M = 'M',
-		FACE_E = 'E',
-		FACE_S = 'S',
-	} face;
+	enum rotation_face face;
 	enum move_direction dir;
 	Uint32 move_time;
 };
@@ -34,24 +23,7 @@ struct base_rotation {
 	                                             : face_ == FACE_L       ? FACE_R \
 	                                             : face_ == FACE_B       ? FACE_F \
 	                                                                     : NONE)
-
-static const intpos faces_map[] = {
-        [FACE_U] = 0,
-        [FACE_F] = 1,
-        [FACE_R] = 2,
-        [FACE_B] = 3,
-        [FACE_L] = 4,
-        [FACE_D] = 5,
-        [FACE_M] = 6,
-        [FACE_E] = 7,
-        [FACE_S] = 8,
-};
-
-// stores which pieces are moved during a rotation
-static const struct move_map {
-	enum rotation_face face;
-	enum stickers stickers[3];
-} moves_map[][4] = {
+const struct move_map moves_map[][4] = {
   // U:
         {{F, {top_right, top_center, top_left}},          {L, {top_right, top_center, top_left}},          {B, {top_right, top_center, top_left}},          {R, {top_right, top_center, top_left}}         },
  // F:
@@ -70,6 +42,18 @@ static const struct move_map {
         {{F, {middle_left, middle_center, middle_right}}, {R, {middle_left, middle_center, middle_right}}, {B, {middle_left, middle_center, middle_right}}, {L, {middle_left, middle_center, middle_right}}},
  // S:
         {{U, {middle_left, middle_center, middle_right}}, {R, {top_center, middle_center, bottom_center}}, {D, {middle_right, middle_center, middle_left}}, {L, {bottom_center, middle_center, top_center}}},
+};
+
+const intpos faces_map[] = {
+        [FACE_U] = 0,
+        [FACE_F] = 1,
+        [FACE_R] = 2,
+        [FACE_B] = 3,
+        [FACE_L] = 4,
+        [FACE_D] = 5,
+        [FACE_M] = 6,
+        [FACE_E] = 7,
+        [FACE_S] = 8,
 };
 
 void make_move(struct cube *cube, struct move move, struct sticker_rotations *animation) {
@@ -256,12 +240,17 @@ void reset_cube(struct cube *cube) {
 }
 
 void shuffle_cube(struct cube *cube) {
+	// TODO
 }
 
-intpos get_sticker_bitmask(intpos face_no, intpos sticker_i) {
-	return 1 << (face_no * 9 + sticker_i);
+intpos get_sticker_index(intpos face_no, intpos sticker_i) {
+	return face_no * 9 + sticker_i;
 }
 
-intpos get_face_bitmask(intpos face_no) {
+uint64_t get_sticker_bitmask(intpos face_no, intpos sticker_i) {
+	return 1 << get_sticker_index(face_no, sticker_i);
+}
+
+uint64_t get_face_bitmask(intpos face_no) {
 	return 0777 << (face_no * 9);
 }

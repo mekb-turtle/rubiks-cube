@@ -2,6 +2,7 @@
 
 layout(location = 0) in vec3 position;
 layout(location = 1) in vec3 color;
+layout(location = 2) in uint sticker_index;
 out vec3 vertexColor;
 uniform vec2 look;
 
@@ -16,17 +17,15 @@ vec3 rotateVector(vec3 v, vec3 axis, float angle) {
 	return rotatedVec;
 }
 
-const float PI = 3.14159265358979323846;
-
 void main() {
 	vec3 pos = position;
 
-	pos = rotateVector(pos, vec3(-1.0, 0.0, 0.0), PI);
+	pos = rotateVector(pos, vec3(-1.0, 0.0, 0.0), radians(180.0));
 
-	// Rotation around Y-axis (pitch)
+	// Rotation on Y-axis (yaw)
 	pos = rotateVector(pos, vec3(0.0, -1.0, 0.0), radians(look.x));
 
-	// Rotation around X-axis (yaw)
+	// Rotation on X-axis (pitch)
 	pos = rotateVector(pos, vec3(-1.0, 0.0, 0.0), radians(look.y));
 
 	gl_Position = vec4(pos, 1.0);

@@ -8,7 +8,7 @@ static const float sticker_size = 0.475f;     // size of sticker (the color part
 static const float sticker_inner_size = 0.5f; // size of the "black border" around stickers
 static const float cube_size = 1.5f;          // distance from origin to a face, should be sticker_distance*1.5
 static const float sticker_distance = 1.0f;   // distance from each sticker
-static const float inwards_offset = -0.003f;   // inwards offset of the "black border" around sticker
+static const float inwards_offset = -0.003f;  // inwards offset of the "black border" around sticker
 static const float outwards_offset = 0.003f;  // outwards offset of sticker, cannot be equal to inwards_offset otherwise z-fighting, cannot be less than
 static const float back_face_distance = 2.0f; // distance away to back faces, visible when the normal faces are obscured
 
