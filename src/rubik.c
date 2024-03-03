@@ -23,6 +23,7 @@ struct base_rotation {
 	                                             : face_ == FACE_L       ? FACE_R \
 	                                             : face_ == FACE_B       ? FACE_F \
 	                                                                     : NONE)
+
 const struct move_map moves_map[][4] = {
   // U:
         {{F, {top_right, top_center, top_left}},          {L, {top_right, top_center, top_left}},          {B, {top_right, top_center, top_left}},          {R, {top_right, top_center, top_left}}         },
@@ -146,6 +147,7 @@ void make_move(struct cube *cube, struct move move, struct sticker_rotations *an
 		switch (rotations[0].face) {
 			case U:
 				animation->axis = AXIS_Y;
+				animation->dir = flip_dir(animation->dir);
 				break;
 			case R:
 				animation->axis = AXIS_X;
@@ -157,7 +159,6 @@ void make_move(struct cube *cube, struct move move, struct sticker_rotations *an
 			case D:
 			case E:
 				animation->axis = AXIS_Y;
-				animation->dir = flip_dir(animation->dir);
 				break;
 			case L:
 			case M:
@@ -171,6 +172,7 @@ void make_move(struct cube *cube, struct move move, struct sticker_rotations *an
 			default:
 				break;
 		}
+		animation->stickers = 0;
 	}
 
 	for (intpos i = 0; i < 3; ++i) {
@@ -248,9 +250,9 @@ intpos get_sticker_index(intpos face_no, intpos sticker_i) {
 }
 
 uint64_t get_sticker_bitmask(intpos face_no, intpos sticker_i) {
-	return 1 << get_sticker_index(face_no, sticker_i);
+	return 1ull << get_sticker_index(face_no, sticker_i);
 }
 
 uint64_t get_face_bitmask(intpos face_no) {
-	return 0777 << (face_no * 9);
+	return 0777ull << (face_no * 9);
 }

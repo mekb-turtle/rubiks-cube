@@ -3,6 +3,6 @@ void reset_camera();
 void rotate_camera(float x, float y);
 void unload();
 bool initialize_render();
-void send_animation(struct sticker_rotations animation);
-void update_cube(struct cube *cube);
+bool send_animation(struct sticker_rotations animation);
+bool update_cube(struct cube *cube);
 void render();

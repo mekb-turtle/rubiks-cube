@@ -23,16 +23,7 @@ void rotate_camera(float x, float y) {
 	if (pitch < -90) pitch = -90;
 }
 
-// maximum amount of animations at a time
-// make sure this is the same as in the vertex shader
-#define MAX_ANIMATIONS 6
-
-static size_t rotations_i = 0;
-static struct sticker_rotations sticker_rotations[MAX_ANIMATIONS];
-
 // vertex generation for the cube
-
-
 static struct vec3 transform_vec3(struct vec3 vec, intpos face, float scale) {
 	struct vec3 ret = vec;
 
@@ -111,22 +102,60 @@ static const size_t vertices_size = vertices_total_count * 3 * sizeof(float);
 static float *vertex_colors = NULL;
 
 void unload() {
+	if (vao) {
+		glBindVertexArray(vao);
+		if (vbo_vertex_positions) glDeleteBuffers(1, &vbo_vertex_positions);
+		if (vbo_vertex_colors) glDeleteBuffers(1, &vbo_vertex_colors);
+		if (vbo_vertex_stickers) glDeleteBuffers(1, &vbo_vertex_stickers);
+		glBindVertexArray(0);
+		glDeleteVertexArrays(1, &vao);
+	}
 	if (shader_program) glDeleteProgram(shader_program);
 	if (vertex_colors) free(vertex_colors);
 }
 
-static void send_color_vbo();
-
 extern const struct move_map moves_map[][4];
 extern const intpos faces_map[];
+
+// maximum amount of animations at a time
+// make sure this is the same as in the vertex shader
+const static size_t max_animations = 1;
+
+// index of animation in ring-buffer
+static size_t animations_i = 0;
+static GLuint *animations = NULL; // buffer
+const static size_t animation_size = 4;
+
+static bool update_animation() {
+	glUseProgram(shader_program);
+	GLint ani_uniform = glGetUniformLocation(shader_program, "animations");
+	if (ani_uniform >= 0) glUniform4uiv(ani_uniform, max_animations, animations);
+
+	GLenum error = glGetError();
+	if (error != GL_NO_ERROR) {
+		warnx("OpenGL error: %i", error);
+		return false;
+	}
+	return true;
+}
+
+bool send_animation(struct sticker_rotations ani) {
+	animations[animations_i] = ani.axis - AXIS_X + (ani.dir * 3);
+	animations[animations_i + 1] = ani.stickers;
+	animations[animations_i + 2] = ani.stickers >> 32;
+	animations[animations_i + 3] = ani.start_time;
+
+	// acts as a ring-buffer
+	animations_i += 4;
+	animations_i %= max_animations * animation_size;
+
+	return update_animation();
+}
 
 bool initialize_render() {
 	reset_camera();
 
 	GLuint vertex_shader = 0, fragment_shader = 0;
-
-	// Clear rotation animation
-	memset(sticker_rotations, 0, sizeof(sticker_rotations));
 
 	int success;
 	char infoLog[512];
@@ -191,14 +220,22 @@ bool initialize_render() {
 		goto error;
 	}
 
+	animations = malloc(max_animations * animation_size * sizeof(GLuint));
+	if (!animations) {
+		warn("Failed to allocate animation buffer");
+		goto error;
+	}
+	memset(animations, 0, max_animations * animation_size * sizeof(GLuint));
+
 	// initialize vertices
+	// TODO: put rectangles inside of the cube so the
+	// user cannot see through the cube when rotating
 	for (intpos face_i = 0; face_i < 6; ++face_i) {
 		for (intpos sticker_i = 0; sticker_i < 9; ++sticker_i) {
 			float s_x = ((float) (sticker_i % 3) - 1) * sticker_distance;
 			float s_y = ((float) (sticker_i / 3) - 1) * sticker_distance;
 
 			// change rectangles_per_sticker if you want to add or remove rectangles here
-
 			// you can adjust the following values in config.h
 
 			// square on the cube
@@ -245,8 +282,8 @@ bool initialize_render() {
 
 	// Vertex color buffer
 	glGenBuffers(1, &vbo_vertex_colors);
-	send_color_vbo();
-	glBindVertexArray(vao);
+	glBindBuffer(GL_ARRAY_BUFFER, vbo_vertex_colors);
+	glBufferData(GL_ARRAY_BUFFER, vertices_size, vertex_colors, GL_STATIC_DRAW);
 	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), 0);
 	glEnableVertexAttribArray(1);
 
@@ -258,31 +295,24 @@ bool initialize_render() {
 	glEnableVertexAttribArray(2);
 
 	glBindVertexArray(0);
+
+	if (!update_animation()) goto error;
+
+	GLenum error = glGetError();
+	if (error != GL_NO_ERROR) {
+		warnx("OpenGL error: %i", error);
+		goto error;
+	}
 	return true;
 error:
 	if (shader_program) glDeleteProgram(shader_program);
 	if (vertex_shader) glDeleteShader(vertex_shader);
 	if (fragment_shader) glDeleteShader(fragment_shader);
+	unload();
 	return false;
 }
 
-static void send_color_vbo() {
-	// Set up color data and buffers
-	glBindVertexArray(vao);
-	glBindBuffer(GL_ARRAY_BUFFER, vbo_vertex_colors);
-	glBufferData(GL_ARRAY_BUFFER, vertices_size, vertex_colors, GL_STATIC_DRAW);
-	glBindVertexArray(0);
-}
-
-void send_animation(struct sticker_rotations animation) {
-	sticker_rotations[rotations_i] = animation;
-
-	// acts as a ring buffer
-	++rotations_i;
-	rotations_i %= MAX_ANIMATIONS;
-}
-
-void update_cube(struct cube *cube) {
+bool update_cube(struct cube *cube) {
 	// inner color (usually black)
 	struct vec3 inner_color = colors[0];
 	struct rect inner_color_rect = rect(inner_color, inner_color, inner_color, inner_color);
@@ -301,7 +331,17 @@ void update_cube(struct cube *cube) {
 		}
 	}
 
-	send_color_vbo();
+	glBindVertexArray(vao);
+	glBindBuffer(GL_ARRAY_BUFFER, vbo_vertex_colors);
+	glBufferData(GL_ARRAY_BUFFER, vertices_size, vertex_colors, GL_STATIC_DRAW);
+	glBindVertexArray(0);
+
+	GLenum error = glGetError();
+	if (error != GL_NO_ERROR) {
+		warnx("OpenGL error: %i", error);
+		return false;
+	}
+	return true;
 }
 
 void render() {
@@ -320,11 +360,11 @@ void render() {
 
 	glUseProgram(shader_program);
 
-	GLint look = glGetUniformLocation(shader_program, "look");
-	if (look >= 0) glUniform2f(look, yaw, pitch);
+	GLint look_uniform = glGetUniformLocation(shader_program, "look");
+	if (look_uniform >= 0) glUniform2f(look_uniform, yaw, pitch);
 
-	GLint ticks = glGetUniformLocation(shader_program, "ticks");
-	if (ticks >= 0) glUniform1i(ticks, SDL_GetTicks());
+	GLint time_uniform = glGetUniformLocation(shader_program, "time");
+	if (time_uniform >= 0) glUniform1ui(time_uniform, SDL_GetTicks());
 
 	glBindVertexArray(vao);
 	glDrawArrays(GL_TRIANGLES, 0, vertices_total_count);

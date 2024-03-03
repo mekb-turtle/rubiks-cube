@@ -64,7 +64,13 @@ int main(int argc, char *argv[]) {
 	Sint32 mouse_x, mouse_y;
 	bool mouse_down = false;
 
+	bool arrow_up = false, arrow_right = false, arrow_down = false, arrow_left = false;
+
+	Uint32 last_time = SDL_GetTicks();
+
 	while (loop) {
+		Uint32 current_time = SDL_GetTicks();
+
 		SDL_GetWindowSize(window, &window_size.x, &window_size.y);
 		if (window_size.x > window_size.y) {
 			render_size.x = render_size.y = window_size.y;
@@ -80,6 +86,25 @@ int main(int argc, char *argv[]) {
 				case SDL_QUIT:
 					loop = false;
 					break;
+				case SDL_KEYDOWN:
+				case SDL_KEYUP: {
+					bool value = event.type == SDL_KEYDOWN;
+					switch (event.key.keysym.sym) {
+						case SDLK_UP:
+							arrow_up = value;
+							break;
+						case SDLK_RIGHT:
+							arrow_right = value;
+							break;
+						case SDLK_DOWN:
+							arrow_down = value;
+							break;
+						case SDLK_LEFT:
+							arrow_left = value;
+							break;
+					}
+					break;
+				}
 				case SDL_TEXTINPUT: {
 					char *text = event.text.text;
 					// loop character
@@ -131,7 +156,6 @@ int main(int argc, char *argv[]) {
 								break;
 							case ' ':
 								reset_camera();
-								break;
 							default:
 								invalid = true;
 								break;
@@ -139,9 +163,9 @@ int main(int argc, char *argv[]) {
 						if (invalid) continue;
 						struct sticker_rotations animation;
 						make_move(&cube, move, &animation);
-						animation.start_time = SDL_GetTicks();
-						send_animation(animation);
-						update_cube(&cube);
+						animation.start_time = current_time;
+						if (!update_cube(&cube)) goto exit;
+						if (!send_animation(animation)) goto exit;
 					}
 					break;
 				}
@@ -172,6 +196,22 @@ int main(int argc, char *argv[]) {
 					break;
 			}
 		}
+
+		// rotate the view of the cube using the arrow keys
+		float look_x = 0, look_y = 0;
+		if (arrow_up) look_y--;
+		if (arrow_right) look_x++;
+		if (arrow_down) look_y++;
+		if (arrow_left) look_x--;
+		if (look_x != 0 || look_y != 0) {
+			if (look_x != 0 && look_y != 0) {
+				look_x *= 0.7071; // 1/sqrt(2)
+				look_y *= 0.7071;
+			}
+			const float multiplier = (current_time - last_time) * 0.15;
+			rotate_camera(look_x * multiplier, look_y * multiplier);
+		}
+		last_time = current_time;
 
 		glViewport((window_size.x - render_size.x) / 2, (window_size.y - render_size.y) / 2, render_size.x, render_size.y);
 
