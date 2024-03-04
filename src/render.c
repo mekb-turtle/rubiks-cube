@@ -74,6 +74,21 @@ extern int binary_shader_vsh_len;
 
 static GLuint vbo_vertex_positions = 0, vbo_vertex_colors = 0, vbo_vertex_stickers = 0, vao = 0, shader_program = 0;
 
+static const size_t vertices_per_rectangle = 2 * 3;
+static const size_t rectangles_per_sticker = 5;
+static const size_t vertices_total_count = 6 * 9 * rectangles_per_sticker * vertices_per_rectangle;
+static const size_t vertices_size = vertices_total_count * 3 * sizeof(float);
+
+static void add_uint8(uint8_t *values, size_t *len, uint8_t value) {
+	values[*len] = value;
+	(*len)++;
+}
+
+static void add_rect_uint8(uint8_t *values, size_t *len, uint8_t value) {
+	for (intpos i = 0; i < vertices_per_rectangle; ++i)
+		add_uint8(values, len, value);
+}
+
 static void add_vec3(float *values, size_t *len, struct vec3 vec3) {
 	for (intpos j = 0; j < 3; ++j) {
 		float f = vec3.points[j];
@@ -92,12 +107,6 @@ static void add_rect(float *values, size_t *len, struct rect rect) {
 	add_tri(values, len, tri(rect.vec[0], rect.vec[1], rect.vec[3]));
 	add_tri(values, len, tri(rect.vec[1], rect.vec[2], rect.vec[3]));
 }
-
-// 9 stickers on 6 sides, each sticker has 4 rectangles each, every rectangle has 2 triangles, every triangle has 3 vertices each, which have 3 float values for xyz
-static const size_t rectangles_per_sticker = 4;
-static const size_t vertices_per_sticker = rectangles_per_sticker * 2 * 3;
-static const size_t vertices_total_count = 9 * 6 * vertices_per_sticker;
-static const size_t vertices_size = vertices_total_count * 3 * sizeof(float);
 
 static float *vertex_colors = NULL;
 
@@ -241,20 +250,22 @@ bool initialize_render() {
 			// square on the cube
 			add_rect(vertex_positions, &vertex_i, transform_rect(rect(vec3(s_x - sticker_size, s_y - sticker_size, cube_size + outwards_offset), vec3(s_x - sticker_size, s_y + sticker_size, cube_size + outwards_offset), vec3(s_x + sticker_size, s_y + sticker_size, cube_size + outwards_offset), vec3(s_x + sticker_size, s_y - sticker_size, cube_size + outwards_offset)), face_i, cube_scale));
 
-			// square outside of the cube (for seeing back faces)
+			// square for the back faces
 			add_rect(vertex_positions, &vertex_i, transform_rect(rect(vec3(s_x - sticker_size, s_y - sticker_size, cube_size + back_face_distance - outwards_offset), vec3(s_x + sticker_size, s_y - sticker_size, cube_size + back_face_distance - outwards_offset), vec3(s_x + sticker_size, s_y + sticker_size, cube_size + back_face_distance - outwards_offset), vec3(s_x - sticker_size, s_y + sticker_size, cube_size + back_face_distance - outwards_offset)), face_i, cube_scale));
 
 			// black border to prevent seeing inside cube
 			add_rect(vertex_positions, &vertex_i, transform_rect(rect(vec3(s_x - sticker_inner_size, s_y - sticker_inner_size, cube_size + inwards_offset), vec3(s_x - sticker_inner_size, s_y + sticker_inner_size, cube_size + inwards_offset), vec3(s_x + sticker_inner_size, s_y + sticker_inner_size, cube_size + inwards_offset), vec3(s_x + sticker_inner_size, s_y - sticker_inner_size, cube_size + inwards_offset)), face_i, cube_scale));
 
-			// same but outside of cube
+			// same as above but flipped to prevent seeing inside when rotating
+			add_rect(vertex_positions, &vertex_i, transform_rect(rect(vec3(s_x - sticker_inner_size, s_y - sticker_inner_size, cube_size + inwards_offset), vec3(s_x + sticker_inner_size, s_y - sticker_inner_size, cube_size + inwards_offset), vec3(s_x + sticker_inner_size, s_y + sticker_inner_size, cube_size + inwards_offset), vec3(s_x - sticker_inner_size, s_y + sticker_inner_size, cube_size + inwards_offset)), face_i, cube_scale));
+
+			// black border but for the back faces
 			add_rect(vertex_positions, &vertex_i, transform_rect(rect(vec3(s_x - sticker_inner_size, s_y - sticker_inner_size, cube_size + back_face_distance - inwards_offset), vec3(s_x + sticker_inner_size, s_y - sticker_inner_size, cube_size + back_face_distance - inwards_offset), vec3(s_x + sticker_inner_size, s_y + sticker_inner_size, cube_size + back_face_distance - inwards_offset), vec3(s_x - sticker_inner_size, s_y + sticker_inner_size, cube_size + back_face_distance - inwards_offset)), face_i, cube_scale));
 
 			uint8_t sticker_index = get_sticker_index(face_i, sticker_i);
-			for (intpos times = 0; times < vertices_per_sticker; ++times) {
+			for (intpos times = 0; times < rectangles_per_sticker; ++times) {
 				// send sticker index to vertex buffer
-				vertex_stickers[vertex_sticker_i] = sticker_index;
-				vertex_sticker_i++;
+				add_rect_uint8(vertex_stickers, &vertex_sticker_i, sticker_index);
 			}
 		}
 	}
@@ -326,6 +337,7 @@ bool update_cube(struct cube *cube) {
 			struct rect color_rect = rect(color, color, color, color);
 			add_rect(vertex_colors, &vertex_i, color_rect);
 			add_rect(vertex_colors, &vertex_i, color_rect);
+			add_rect(vertex_colors, &vertex_i, inner_color_rect);
 			add_rect(vertex_colors, &vertex_i, inner_color_rect);
 			add_rect(vertex_colors, &vertex_i, inner_color_rect);
 		}

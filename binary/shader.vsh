@@ -3,7 +3,9 @@
 layout(location = 0) in vec3 position;
 layout(location = 1) in vec3 color;
 layout(location = 2) in uint stickerIndex;
+
 out vec3 vertexColor;
+
 uniform vec2 look;
 uniform uint time;
 uniform uvec4 animations[1]; // make sure this is the same as max_animations
