@@ -1,4 +1,4 @@
-#include "./rubik.h"
+#include "rubik.h"
 void reset_camera();
 void rotate_camera(float x, float y);
 void unload();

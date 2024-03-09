@@ -8,7 +8,8 @@ out vec3 vertexColor;
 
 uniform vec2 look;
 uniform uint time;
-uniform uvec4 animations[1]; // make sure this is the same as max_animations
+uniform uvec4 animation;
+uniform uint turn_time;
 
 // rotates a vector around an axis
 vec3 rotateVector(vec3 vec, vec3 axis, float angle) {
@@ -23,24 +24,18 @@ vec3 rotateVector(vec3 vec, vec3 axis, float angle) {
 }
 
 void main() {
-	const uint turn_time = 400u;
-
 	vec3 pos = position;
 
 	// handle rotation
-	for (int i = 0; i < 6; ++i) {
-		uvec4 anim = animations[i];
-		uint bit = 1u << (stickerIndex & 0x1fu);
-		// check that this sticker should be rotated
-		if (((stickerIndex <= 0x1fu ? anim.y : anim.z) & bit) == 0u) continue;
-
+	uint bit = 1u << (stickerIndex & 0x1fu);
+	// check that this sticker should be rotated
+	if (((stickerIndex <= 0x1fu ? animation.y : animation.z) & bit) != 0u) {
 		// get what axis to rotate on
-		uint axis = anim.x % 3u;
-		vec3 rotateAxis = vec3(axis == 0u ? 1.0 : 0.0, axis == 1u ? 1.0 : 0.0, axis == 2u ? 1.0 : 0.0);
+		uint axis = animation.x % 3u;
 
 		// get direction to rotate in
 		int dir = 0;
-		switch (anim.x / 3u) {
+		switch (animation.x / 3u) {
 			case 0u:
 				dir = -1;
 				break;
@@ -53,21 +48,21 @@ void main() {
 		}
 
 		// animation timer
-		float ani = 0.0f;
-		if (time >= anim.w && time < anim.w + turn_time) {
-			ani = (1.0f - float(time - anim.w) / turn_time) * radians(90.0) * float(dir);
-		}
+		if (time >= animation.w && time < animation.w + turn_time) {
+			float ani = (1.0f - float(time - animation.w) / turn_time) * radians(90.0) * float(dir);
+			vec3 rotateAxis = vec3(axis == 0u ? 1.0 : 0.0, axis == 1u ? 1.0 : 0.0, axis == 2u ? 1.0 : 0.0);
 
-		// do rotation
-		pos = rotateVector(pos, rotateAxis, ani);
+			// do rotation
+			pos = rotateVector(pos, rotateAxis, ani);
+		}
 	}
 
 	pos = rotateVector(pos, vec3(-1.0, 0.0, 0.0), radians(180.0));
 
-	// Rotation on Y-axis (yaw)
+	// rotation on Y-axis (yaw)
 	pos = rotateVector(pos, vec3(0.0, -1.0, 0.0), radians(look.x));
 
-	// Rotation on X-axis (pitch)
+	// rotation on X-axis (pitch)
 	pos = rotateVector(pos, vec3(-1.0, 0.0, 0.0), radians(look.y));
 
 	gl_Position = vec4(pos, 1.0);

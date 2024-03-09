@@ -6,7 +6,7 @@
 #include <SDL2/SDL_opengl.h>
 
 #define RENDER
-#include "./config.h"
+#include "config.h"
 
 static float yaw, pitch;
 
@@ -126,19 +126,12 @@ void unload() {
 extern const struct move_map moves_map[][4];
 extern const intpos faces_map[];
 
-// maximum amount of animations at a time
-// make sure this is the same as in the vertex shader
-const static size_t max_animations = 1;
-
-// index of animation in ring-buffer
-static size_t animations_i = 0;
-static GLuint *animations = NULL; // buffer
-const static size_t animation_size = 4;
+static GLuint animation[4] = {0, 0, 0, 0}; // current animation
 
 static bool update_animation() {
 	glUseProgram(shader_program);
-	GLint ani_uniform = glGetUniformLocation(shader_program, "animations");
-	if (ani_uniform >= 0) glUniform4uiv(ani_uniform, max_animations, animations);
+	GLint animation_uniform = glGetUniformLocation(shader_program, "animation");
+	if (animation_uniform >= 0) glUniform4uiv(animation_uniform, 1, animation);
 
 	GLenum error = glGetError();
 	if (error != GL_NO_ERROR) {
@@ -148,15 +141,22 @@ static bool update_animation() {
 	return true;
 }
 
-bool send_animation(struct sticker_rotations ani) {
-	animations[animations_i] = ani.axis - AXIS_X + (ani.dir * 3);
-	animations[animations_i + 1] = ani.stickers;
-	animations[animations_i + 2] = ani.stickers >> 32;
-	animations[animations_i + 3] = ani.start_time;
+static GLuint *get_animation(struct sticker_rotations ani) {
+	// compact all the data of the struct into a uvec4
+	return (GLuint[4]){
+	        ani.axis - AXIS_X + (ani.dir * 3),
+	        ani.stickers,
+	        ani.stickers >> 32,
+	        ani.start_time};
+}
 
-	// acts as a ring-buffer
-	animations_i += 4;
-	animations_i %= max_animations * animation_size;
+bool send_animation(struct sticker_rotations ani) {
+	GLuint *anim = get_animation(ani);
+
+	// copy the uvec4
+	for (int i = 0; i < 4; i++) {
+		animation[i] = anim[i];
+	}
 
 	return update_animation();
 }
@@ -228,13 +228,6 @@ bool initialize_render() {
 		warn("Failed to allocate vertex sticker indices buffer");
 		goto error;
 	}
-
-	animations = malloc(max_animations * animation_size * sizeof(GLuint));
-	if (!animations) {
-		warn("Failed to allocate animation buffer");
-		goto error;
-	}
-	memset(animations, 0, max_animations * animation_size * sizeof(GLuint));
 
 	// initialize vertices
 	// TODO: put rectangles inside of the cube so the
@@ -309,6 +302,9 @@ bool initialize_render() {
 
 	if (!update_animation()) goto error;
 
+	GLint turn_time_uniform = glGetUniformLocation(shader_program, "turn_time");
+	if (turn_time_uniform >= 0) glUniform1ui(turn_time_uniform, turn_time);
+
 	GLenum error = glGetError();
 	if (error != GL_NO_ERROR) {
 		warnx("OpenGL error: %i", error);
@@ -320,6 +316,7 @@ error:
 	if (vertex_shader) glDeleteShader(vertex_shader);
 	if (fragment_shader) glDeleteShader(fragment_shader);
 	unload();
+
 	return false;
 }
 

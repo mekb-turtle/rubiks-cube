@@ -1,6 +1,12 @@
 #ifndef CONFIG_H
 #define CONFIG_H
 #define WINDOW_TITLE "Rubik's Cube"
+#include <stdint.h>
+
+typedef uint32_t time; // what type to use for time (should be the same as SDL and GL, so GLuint and Uint32)
+static const uint32_t turn_time = 400; // change this in shader.vsh too
+static const uint32_t max_moves = 4;
+
 #ifdef RENDER
 static const float cube_scale = 0.2f; // scale of entire cube, all other values are scaled by this
 

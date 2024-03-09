@@ -1,4 +1,5 @@
-#include "./rubik.h"
+#include "rubik.h"
+#include "config.h"
 
 char get_char_move_face(enum move_face face) {
 	return "URFDLBurfdlbMESxyz"[face];
@@ -11,7 +12,7 @@ char get_char_move_direction(enum move_direction dir) {
 struct base_rotation {
 	enum rotation_face face;
 	enum move_direction dir;
-	Uint32 move_time;
+	time move_time;
 };
 
 #define flip_dir(dir_) (dir_ == cw ? ccw : dir_ == ccw ? cw \

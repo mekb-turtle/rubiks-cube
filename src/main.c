@@ -5,9 +5,10 @@
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_opengl.h>
 
-#include "./config.h"
-#include "./rubik.h"
+#include "config.h"
+#include "rubik.h"
 #include "render.h"
+#include "moves.h"
 
 struct cube cube;
 
@@ -55,6 +56,7 @@ int main(int argc, char *argv[]) {
 
 	render_init = 1;
 
+	init_moves();
 	update_cube(&cube);
 
 	SDL_Point window_size;
@@ -66,10 +68,10 @@ int main(int argc, char *argv[]) {
 
 	bool arrow_up = false, arrow_right = false, arrow_down = false, arrow_left = false;
 
-	Uint32 last_time = SDL_GetTicks();
+	time last_time = SDL_GetTicks();
 
 	while (loop) {
-		Uint32 current_time = SDL_GetTicks();
+		time current_time = SDL_GetTicks();
 
 		SDL_GetWindowSize(window, &window_size.x, &window_size.y);
 		if (window_size.x > window_size.y) {
@@ -161,11 +163,7 @@ int main(int argc, char *argv[]) {
 								break;
 						}
 						if (invalid) continue;
-						struct sticker_rotations animation;
-						make_move(&cube, move, &animation);
-						animation.start_time = current_time;
-						if (!update_cube(&cube)) goto exit;
-						if (!send_animation(animation)) goto exit;
+						if (!send_move(move)) goto exit;
 					}
 					break;
 				}
@@ -213,6 +211,8 @@ int main(int argc, char *argv[]) {
 		}
 		last_time = current_time;
 
+		update_moves(current_time, &cube);
+
 		glViewport((window_size.x - render_size.x) / 2, (window_size.y - render_size.y) / 2, render_size.x, render_size.y);
 
 		render(&cube);
@@ -232,6 +232,7 @@ exit:
 	if (context) SDL_GL_DeleteContext(context);
 	if (window) SDL_DestroyWindow(window);
 	SDL_Quit();
+	free_moves();
 
 	return ret;
 }
