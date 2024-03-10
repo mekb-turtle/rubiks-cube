@@ -302,7 +302,7 @@ bool initialize_render() {
 
 	if (!update_animation()) goto error;
 
-	GLint turn_time_uniform = glGetUniformLocation(shader_program, "turn_time");
+	GLint turn_time_uniform = glGetUniformLocation(shader_program, "turnTime");
 	if (turn_time_uniform >= 0) glUniform1ui(turn_time_uniform, turn_time);
 
 	GLenum error = glGetError();

@@ -9,7 +9,7 @@ out vec3 vertexColor;
 uniform vec2 look;
 uniform uint time;
 uniform uvec4 animation;
-uniform uint turn_time;
+uniform uint turnTime;
 
 // rotates a vector around an axis
 vec3 rotateVector(vec3 vec, vec3 axis, float angle) {
@@ -48,8 +48,8 @@ void main() {
 		}
 
 		// animation timer
-		if (time >= animation.w && time < animation.w + turn_time) {
-			float ani = (1.0f - float(time - animation.w) / turn_time) * radians(90.0) * float(dir);
+		if (time >= animation.w && time < animation.w + turnTime) {
+			float ani = (1.0f - float(time - animation.w) / turnTime) * radians(90.0) * float(dir);
 			vec3 rotateAxis = vec3(axis == 0u ? 1.0 : 0.0, axis == 1u ? 1.0 : 0.0, axis == 2u ? 1.0 : 0.0);
 
 			// do rotation
