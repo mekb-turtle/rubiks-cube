@@ -43,6 +43,8 @@ enum stickers {
 
 struct move {
 	enum move_face {
+		NO_FACE = 0,
+
 		U = 'U',
 		R = 'R',
 		F = 'F',

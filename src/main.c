@@ -90,81 +90,81 @@ int main(int argc, char *argv[]) {
 					break;
 				case SDL_KEYDOWN:
 				case SDL_KEYUP: {
-					bool value = event.type == SDL_KEYDOWN;
-					switch (event.key.keysym.sym) {
+					SDL_Keysym sym = event.key.keysym;
+					bool is_down = event.type == SDL_KEYDOWN;
+					switch (sym.sym) {
 						case SDLK_UP:
-							arrow_up = value;
+							arrow_up = is_down;
 							break;
 						case SDLK_RIGHT:
-							arrow_right = value;
+							arrow_right = is_down;
 							break;
 						case SDLK_DOWN:
-							arrow_down = value;
+							arrow_down = is_down;
 							break;
 						case SDLK_LEFT:
-							arrow_left = value;
+							arrow_left = is_down;
 							break;
 					}
-					break;
-				}
-				case SDL_TEXTINPUT: {
-					char *text = event.text.text;
-					// loop character
-					for (; *text; ++text) {
-						struct move move;
-						if (*text >= 'a' && *text <= 'z') {
-							move.dir = cw;
-							*text = *text + 'A' - 'a';
-						} else {
-							move.dir = ccw;
-						}
-						bool invalid = false;
-						switch (*text) {
-							case 'U':
-								move.face = U;
-								break;
-							case 'R':
-								move.face = R;
-								break;
-							case 'F':
-								move.face = F;
-								break;
-							case 'D':
-								move.face = D;
-								break;
-							case 'L':
-								move.face = L;
-								break;
-							case 'B':
-								move.face = B;
-								break;
-							case 'X':
-								move.face = x;
-								break;
-							case 'Y':
-								move.face = y;
-								break;
-							case 'Z':
-								move.face = z;
-								break;
-							case 'M':
-								move.face = M;
-								break;
-							case 'E':
-								move.face = E;
-								break;
-							case 'S':
-								move.face = S;
-								break;
-							case ' ':
-								reset_camera();
-							default:
-								invalid = true;
-								break;
-						}
-						if (invalid) continue;
-						if (!send_move(move)) goto exit;
+					if (!is_down) break;
+					bool prime_rotate = !!(sym.mod & KMOD_SHIFT) != !!(sym.mod & KMOD_CAPS); // if shift is down XOR caps lock is on
+					bool double_rotate = sym.mod & KMOD_CTRL;
+					bool double_layer = sym.mod & KMOD_ALT;
+					if (sym.sym >= 'A' && sym.sym <= 'Z') sym.sym = sym.sym + 'a' - 'A'; // make lowercase
+					struct move move;
+					move.face = NO_FACE;
+					if (double_rotate)
+						move.dir = dbl;
+					else if (prime_rotate)
+						move.dir = ccw;
+					else
+						move.dir = cw;
+					switch (sym.sym) {
+						case 'u':
+							move.face = double_layer ? u : U;
+							break;
+						case 'r':
+							move.face = double_layer ? r : R;
+							break;
+						case 'f':
+							move.face = double_layer ? f : F;
+							break;
+						case 'd':
+							move.face = double_layer ? d : D;
+							break;
+						case 'l':
+							move.face = double_layer ? l : L;
+							break;
+						case 'b':
+							move.face = double_layer ? b : B;
+							break;
+						case 'x':
+							move.face = x;
+							break;
+						case 'y':
+							move.face = y;
+							break;
+						case 'z':
+							move.face = z;
+							break;
+						case 'm':
+							move.face = M;
+							break;
+						case 'e':
+							move.face = E;
+							break;
+						case 's':
+							move.face = S;
+							break;
+						case ' ':
+							reset_camera();
+							break;
+						default:
+							break;
 					}
+					// default because we don't want to move if the user presses an invalid letter
+					if (move.face == NO_FACE) break;
+					if (!send_move(move)) goto exit;
 					break;
 				}
 				case SDL_MOUSEBUTTONUP:

@@ -15,15 +15,7 @@ struct base_rotation {
 	time move_time;
 };
 
-#define flip_dir(dir_) (dir_ == cw ? ccw : dir_ == ccw ? cw \
-	                                                   : dir_)
-
-#define opposite_face(face_) (face_ == FACE_U ? FACE_D : face_ == FACE_R ? FACE_L \
-	                                             : face_ == FACE_F       ? FACE_B \
-	                                             : face_ == FACE_D       ? FACE_U \
-	                                             : face_ == FACE_L       ? FACE_R \
-	                                             : face_ == FACE_B       ? FACE_F \
-	                                                                     : NONE)
+#define flip_dir(dir_) (dir_ == cw ? ccw : (dir_ == ccw ? cw : dir_))
 
 const struct move_map moves_map[][4] = {
   // U:
@@ -88,26 +80,32 @@ void make_move(struct cube *cube, struct move move, struct sticker_rotations *an
 		case l:
 		case b:
 			rotations[0].face = move.face - u + U;
-			rotations[0].dir = move.face;
+			rotations[0].dir = move.dir;
 			switch (move.face) {
 				case u:
 					rotations[1].face = FACE_E;
 					rotations[1].dir = flip_dir(move.dir);
+					break;
 				case r:
 					rotations[1].face = FACE_M;
 					rotations[1].dir = flip_dir(move.dir);
+					break;
 				case f:
 					rotations[1].face = FACE_S;
 					rotations[1].dir = move.dir;
+					break;
 				case d:
 					rotations[1].face = FACE_E;
 					rotations[1].dir = move.dir;
+					break;
 				case l:
 					rotations[1].face = FACE_M;
 					rotations[1].dir = move.dir;
+					break;
 				case b:
 					rotations[1].face = FACE_S;
 					rotations[1].dir = flip_dir(move.dir);
+					break;
 				default:
 					break;
 			}
