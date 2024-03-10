@@ -72,7 +72,7 @@ extern const char binary_shader_vsh[];
 extern int binary_shader_fsh_len;
 extern int binary_shader_vsh_len;
 
-static GLuint vbo_vertex_positions = 0, vbo_vertex_colors = 0, vbo_vertex_stickers = 0, vao = 0, shader_program = 0;
+static GLuint vbo_vertex_positions = 0, vbo_vertex_colors = 0, vbo_vertex_stickers = 0, vbo_vertex_texcoords = 0, vao = 0, shader_program = 0;
 
 static const size_t vertices_per_rectangle = 4;
 static const size_t rectangles_per_sticker = 5;
@@ -84,17 +84,19 @@ static void add_uint8(uint8_t *values, size_t *len, uint8_t value) {
 	(*len)++;
 }
 
+static void add_float(float *values, size_t *len, float value) {
+	values[*len] = value;
+	(*len)++;
+}
+
 static void add_rect_uint8(uint8_t *values, size_t *len, uint8_t value) {
 	for (intpos i = 0; i < vertices_per_rectangle; ++i)
 		add_uint8(values, len, value);
 }
 
 static void add_vec3(float *values, size_t *len, struct vec3 vec3) {
-	for (intpos j = 0; j < 3; ++j) {
-		float f = vec3.points[j];
-		values[*len] = f;
-		(*len)++;
-	}
+	for (intpos j = 0; j < 3; ++j)
+		add_float(values, len, vec3.points[j]);
 }
 
 static void add_rect(float *values, size_t *len, struct rect rect) {
@@ -102,6 +104,18 @@ static void add_rect(float *values, size_t *len, struct rect rect) {
 	add_vec3(values, len, rect.vec[1]);
 	add_vec3(values, len, rect.vec[2]);
 	add_vec3(values, len, rect.vec[3]);
+}
+
+static const float rect_texcoord[8] = { // texture coordinates for a rect
+        0.0f, 0.0f,
+        1.0f, 0.0f,
+        1.0f, 1.0f,
+        0.0f, 1.0f};
+
+static void add_texcoord(float *values, size_t *len) {
+	for (intpos i = 0; i < sizeof(rect_texcoord) / sizeof(rect_texcoord[0]); ++i) {
+		add_float(values, len, rect_texcoord[i]);
+	}
 }
 
 static float *vertex_colors = NULL;
@@ -112,6 +126,7 @@ void unload() {
 		if (vbo_vertex_positions) glDeleteBuffers(1, &vbo_vertex_positions);
 		if (vbo_vertex_colors) glDeleteBuffers(1, &vbo_vertex_colors);
 		if (vbo_vertex_stickers) glDeleteBuffers(1, &vbo_vertex_stickers);
+		if (vbo_vertex_texcoords) glDeleteBuffers(1, &vbo_vertex_texcoords);
 		glBindVertexArray(0);
 		glDeleteVertexArrays(1, &vao);
 	}
@@ -209,7 +224,7 @@ bool initialize_render() {
 	glDeleteShader(fragment_shader);
 
 	// stores position of each vertex
-	size_t vertex_i = 0;
+	size_t vertex_position_i = 0;
 	float *vertex_positions = malloc(vertices_size);
 	if (!vertex_positions) {
 		warn("Failed to allocate vertex position buffer");
@@ -225,6 +240,15 @@ bool initialize_render() {
 		goto error;
 	}
 
+	// stores texture coordinates for each vertex
+	size_t vertex_texcoord_i = 0;
+	const size_t vertices_texcoord_size = vertices_total_count * 2 * sizeof(float);
+	float *vertex_texcoords = malloc(vertices_texcoord_size);
+	if (!vertex_texcoords) {
+		warn("Failed to allocate vertex texcoord buffer");
+		goto error;
+	}
+
 	// initialize vertices
 	// TODO: put rectangles inside of the cube so the
 	// user cannot see through the cube when rotating
@@ -237,24 +261,25 @@ bool initialize_render() {
 			// you can adjust the following values in config.h
 
 			// square on the cube
-			add_rect(vertex_positions, &vertex_i, transform_rect(rect(vec3(s_x - sticker_size, s_y - sticker_size, cube_size + outwards_offset), vec3(s_x - sticker_size, s_y + sticker_size, cube_size + outwards_offset), vec3(s_x + sticker_size, s_y + sticker_size, cube_size + outwards_offset), vec3(s_x + sticker_size, s_y - sticker_size, cube_size + outwards_offset)), face_i, cube_scale));
+			add_rect(vertex_positions, &vertex_position_i, transform_rect(rect(vec3(s_x - sticker_size, s_y - sticker_size, cube_size + outwards_offset), vec3(s_x - sticker_size, s_y + sticker_size, cube_size + outwards_offset), vec3(s_x + sticker_size, s_y + sticker_size, cube_size + outwards_offset), vec3(s_x + sticker_size, s_y - sticker_size, cube_size + outwards_offset)), face_i, cube_scale));
 
 			// square for the back faces
-			add_rect(vertex_positions, &vertex_i, transform_rect(rect(vec3(s_x - sticker_size, s_y - sticker_size, cube_size + back_face_distance - outwards_offset), vec3(s_x + sticker_size, s_y - sticker_size, cube_size + back_face_distance - outwards_offset), vec3(s_x + sticker_size, s_y + sticker_size, cube_size + back_face_distance - outwards_offset), vec3(s_x - sticker_size, s_y + sticker_size, cube_size + back_face_distance - outwards_offset)), face_i, cube_scale));
+			add_rect(vertex_positions, &vertex_position_i, transform_rect(rect(vec3(s_x - sticker_size, s_y - sticker_size, cube_size + back_face_distance - outwards_offset), vec3(s_x + sticker_size, s_y - sticker_size, cube_size + back_face_distance - outwards_offset), vec3(s_x + sticker_size, s_y + sticker_size, cube_size + back_face_distance - outwards_offset), vec3(s_x - sticker_size, s_y + sticker_size, cube_size + back_face_distance - outwards_offset)), face_i, cube_scale));
 
 			// black border to prevent seeing inside cube
-			add_rect(vertex_positions, &vertex_i, transform_rect(rect(vec3(s_x - sticker_inner_size, s_y - sticker_inner_size, cube_size + inwards_offset), vec3(s_x - sticker_inner_size, s_y + sticker_inner_size, cube_size + inwards_offset), vec3(s_x + sticker_inner_size, s_y + sticker_inner_size, cube_size + inwards_offset), vec3(s_x + sticker_inner_size, s_y - sticker_inner_size, cube_size + inwards_offset)), face_i, cube_scale));
+			add_rect(vertex_positions, &vertex_position_i, transform_rect(rect(vec3(s_x - sticker_inner_size, s_y - sticker_inner_size, cube_size + inwards_offset), vec3(s_x - sticker_inner_size, s_y + sticker_inner_size, cube_size + inwards_offset), vec3(s_x + sticker_inner_size, s_y + sticker_inner_size, cube_size + inwards_offset), vec3(s_x + sticker_inner_size, s_y - sticker_inner_size, cube_size + inwards_offset)), face_i, cube_scale));
 
 			// same as above but flipped to prevent seeing inside when rotating
-			add_rect(vertex_positions, &vertex_i, transform_rect(rect(vec3(s_x - sticker_inner_size, s_y - sticker_inner_size, cube_size + inwards_offset), vec3(s_x + sticker_inner_size, s_y - sticker_inner_size, cube_size + inwards_offset), vec3(s_x + sticker_inner_size, s_y + sticker_inner_size, cube_size + inwards_offset), vec3(s_x - sticker_inner_size, s_y + sticker_inner_size, cube_size + inwards_offset)), face_i, cube_scale));
+			add_rect(vertex_positions, &vertex_position_i, transform_rect(rect(vec3(s_x - sticker_inner_size, s_y - sticker_inner_size, cube_size + inwards_offset), vec3(s_x + sticker_inner_size, s_y - sticker_inner_size, cube_size + inwards_offset), vec3(s_x + sticker_inner_size, s_y + sticker_inner_size, cube_size + inwards_offset), vec3(s_x - sticker_inner_size, s_y + sticker_inner_size, cube_size + inwards_offset)), face_i, cube_scale));
 
 			// black border but for the back faces
-			add_rect(vertex_positions, &vertex_i, transform_rect(rect(vec3(s_x - sticker_inner_size, s_y - sticker_inner_size, cube_size + back_face_distance - inwards_offset), vec3(s_x + sticker_inner_size, s_y - sticker_inner_size, cube_size + back_face_distance - inwards_offset), vec3(s_x + sticker_inner_size, s_y + sticker_inner_size, cube_size + back_face_distance - inwards_offset), vec3(s_x - sticker_inner_size, s_y + sticker_inner_size, cube_size + back_face_distance - inwards_offset)), face_i, cube_scale));
+			add_rect(vertex_positions, &vertex_position_i, transform_rect(rect(vec3(s_x - sticker_inner_size, s_y - sticker_inner_size, cube_size + back_face_distance - inwards_offset), vec3(s_x + sticker_inner_size, s_y - sticker_inner_size, cube_size + back_face_distance - inwards_offset), vec3(s_x + sticker_inner_size, s_y + sticker_inner_size, cube_size + back_face_distance - inwards_offset), vec3(s_x - sticker_inner_size, s_y + sticker_inner_size, cube_size + back_face_distance - inwards_offset)), face_i, cube_scale));
 
 			uint8_t sticker_index = get_sticker_index(face_i, sticker_i);
 			for (intpos times = 0; times < rectangles_per_sticker; ++times) {
 				// send sticker index to vertex buffer
 				add_rect_uint8(vertex_stickers, &vertex_sticker_i, sticker_index);
+				add_texcoord(vertex_texcoords, &vertex_texcoord_i);
 			}
 		}
 	}
@@ -287,12 +312,21 @@ bool initialize_render() {
 	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), 0);
 	glEnableVertexAttribArray(1);
 
+	// Vertex sticker index buffer
 	glGenBuffers(1, &vbo_vertex_stickers);
 	glBindBuffer(GL_ARRAY_BUFFER, vbo_vertex_stickers);
 	glBufferData(GL_ARRAY_BUFFER, vertices_sticker_size, vertex_stickers, GL_STATIC_DRAW);
 	free(vertex_stickers);
 	glVertexAttribIPointer(2, 1, GL_UNSIGNED_BYTE, sizeof(uint8_t), 0);
 	glEnableVertexAttribArray(2);
+
+	// Vertex texture coordinate buffer
+	glGenBuffers(1, &vbo_vertex_texcoords);
+	glBindBuffer(GL_ARRAY_BUFFER, vbo_vertex_texcoords);
+	glBufferData(GL_ARRAY_BUFFER, vertices_texcoord_size, vertex_texcoords, GL_STATIC_DRAW);
+	free(vertex_texcoords);
+	glVertexAttribPointer(3, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), 0);
+	glEnableVertexAttribArray(3);
 
 	glBindVertexArray(0);
 

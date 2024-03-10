@@ -3,8 +3,10 @@
 layout(location = 0) in vec3 position;
 layout(location = 1) in vec3 color;
 layout(location = 2) in uint stickerIndex;
+layout(location = 3) in vec2 texCoords;
 
-out vec3 vertexColor;
+out vec3 fColor;
+out vec2 fTexCoords;
 
 uniform vec2 look;
 uniform uint time;
@@ -67,5 +69,6 @@ void main() {
 
 	gl_Position = vec4(pos, 1.0);
 
-	vertexColor = color;
+	fTexCoords = texCoords;
+	fColor = color;
 }
