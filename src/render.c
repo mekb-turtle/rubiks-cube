@@ -74,7 +74,7 @@ extern int binary_shader_vsh_len;
 
 static GLuint vbo_vertex_positions = 0, vbo_vertex_colors = 0, vbo_vertex_stickers = 0, vao = 0, shader_program = 0;
 
-static const size_t vertices_per_rectangle = 2 * 3;
+static const size_t vertices_per_rectangle = 4;
 static const size_t rectangles_per_sticker = 5;
 static const size_t vertices_total_count = 6 * 9 * rectangles_per_sticker * vertices_per_rectangle;
 static const size_t vertices_size = vertices_total_count * 3 * sizeof(float);
@@ -97,15 +97,11 @@ static void add_vec3(float *values, size_t *len, struct vec3 vec3) {
 	}
 }
 
-static void add_tri(float *values, size_t *len, struct tri tri) {
-	add_vec3(values, len, tri.vec[0]);
-	add_vec3(values, len, tri.vec[1]);
-	add_vec3(values, len, tri.vec[2]);
-}
-
 static void add_rect(float *values, size_t *len, struct rect rect) {
-	add_tri(values, len, tri(rect.vec[0], rect.vec[1], rect.vec[3]));
-	add_tri(values, len, tri(rect.vec[1], rect.vec[2], rect.vec[3]));
+	add_vec3(values, len, rect.vec[0]);
+	add_vec3(values, len, rect.vec[1]);
+	add_vec3(values, len, rect.vec[2]);
+	add_vec3(values, len, rect.vec[3]);
 }
 
 static float *vertex_colors = NULL;
@@ -376,6 +372,6 @@ void render() {
 	if (time_uniform >= 0) glUniform1ui(time_uniform, SDL_GetTicks());
 
 	glBindVertexArray(vao);
-	glDrawArrays(GL_TRIANGLES, 0, vertices_total_count);
+	glDrawArrays(GL_QUADS, 0, vertices_total_count);
 	glBindVertexArray(0);
 }
