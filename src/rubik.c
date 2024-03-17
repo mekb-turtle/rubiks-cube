@@ -1,5 +1,6 @@
 #include "rubik.h"
 #include "config.h"
+#include "moves.h"
 
 char get_char_move_face(enum move_face face) {
 	return "URFDLBurfdlbMESxyz"[face];
@@ -12,10 +13,8 @@ char get_char_move_direction(enum move_direction dir) {
 struct base_rotation {
 	enum rotation_face face;
 	enum move_direction dir;
-	time move_time;
+	int_time move_time;
 };
-
-#define flip_dir(dir_) (dir_ == cw ? ccw : (dir_ == ccw ? cw : dir_))
 
 const struct move_map moves_map[][4] = {
   // U:
@@ -84,11 +83,11 @@ void make_move(struct cube *cube, struct move move, struct sticker_rotations *an
 			switch (move.face) {
 				case u:
 					rotations[1].face = FACE_E;
-					rotations[1].dir = flip_dir(move.dir);
+					rotations[1].dir = FLIP_DIR(move.dir);
 					break;
 				case r:
 					rotations[1].face = FACE_M;
-					rotations[1].dir = flip_dir(move.dir);
+					rotations[1].dir = FLIP_DIR(move.dir);
 					break;
 				case f:
 					rotations[1].face = FACE_S;
@@ -104,7 +103,7 @@ void make_move(struct cube *cube, struct move move, struct sticker_rotations *an
 					break;
 				case b:
 					rotations[1].face = FACE_S;
-					rotations[1].dir = flip_dir(move.dir);
+					rotations[1].dir = FLIP_DIR(move.dir);
 					break;
 				default:
 					break;
@@ -116,17 +115,17 @@ void make_move(struct cube *cube, struct move move, struct sticker_rotations *an
 			rotations[0].face = FACE_R;
 			rotations[0].dir = move.dir;
 			rotations[1].face = FACE_M;
-			rotations[1].dir = flip_dir(move.dir);
+			rotations[1].dir = FLIP_DIR(move.dir);
 			rotations[2].face = FACE_L;
-			rotations[2].dir = flip_dir(move.dir);
+			rotations[2].dir = FLIP_DIR(move.dir);
 			break;
 		case y:
 			rotations[0].face = FACE_U;
 			rotations[0].dir = move.dir;
 			rotations[1].face = FACE_E;
-			rotations[1].dir = flip_dir(move.dir);
+			rotations[1].dir = FLIP_DIR(move.dir);
 			rotations[2].face = FACE_D;
-			rotations[2].dir = flip_dir(move.dir);
+			rotations[2].dir = FLIP_DIR(move.dir);
 			break;
 		case z:
 			rotations[0].face = FACE_F;
@@ -134,7 +133,7 @@ void make_move(struct cube *cube, struct move move, struct sticker_rotations *an
 			rotations[1].face = FACE_S;
 			rotations[1].dir = move.dir;
 			rotations[2].face = FACE_B;
-			rotations[2].dir = flip_dir(move.dir);
+			rotations[2].dir = FLIP_DIR(move.dir);
 			break;
 
 		default:
@@ -146,7 +145,7 @@ void make_move(struct cube *cube, struct move move, struct sticker_rotations *an
 		switch (rotations[0].face) {
 			case U:
 				animation->axis = AXIS_Y;
-				animation->dir = flip_dir(animation->dir);
+				animation->dir = FLIP_DIR(animation->dir);
 				break;
 			case R:
 				animation->axis = AXIS_X;
@@ -162,11 +161,11 @@ void make_move(struct cube *cube, struct move move, struct sticker_rotations *an
 			case L:
 			case M:
 				animation->axis = AXIS_X;
-				animation->dir = flip_dir(animation->dir);
+				animation->dir = FLIP_DIR(animation->dir);
 				break;
 			case B:
 				animation->axis = AXIS_Z;
-				animation->dir = flip_dir(animation->dir);
+				animation->dir = FLIP_DIR(animation->dir);
 				break;
 			default:
 				break;
@@ -238,10 +237,6 @@ void reset_cube(struct cube *cube) {
 			cube->faces[face].stickers[sticker] = face;
 		}
 	}
-}
-
-void shuffle_cube(struct cube *cube) {
-	// TODO
 }
 
 intpos get_sticker_index(intpos face_no, intpos sticker_i) {

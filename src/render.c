@@ -6,6 +6,7 @@
 #include <SDL2/SDL_opengl.h>
 
 #define RENDER
+#include "moves.h"
 #include "config.h"
 
 static float yaw, pitch;
@@ -332,8 +333,7 @@ bool initialize_render() {
 
 	if (!update_animation()) goto error;
 
-	GLint turn_time_uniform = glGetUniformLocation(shader_program, "turnTime");
-	if (turn_time_uniform >= 0) glUniform1ui(turn_time_uniform, turn_time);
+	update_render_turn_time();
 
 	GLenum error = glGetError();
 	if (error != GL_NO_ERROR) {
@@ -408,4 +408,10 @@ void render() {
 	glBindVertexArray(vao);
 	glDrawArrays(GL_QUADS, 0, vertices_total_count);
 	glBindVertexArray(0);
+}
+
+void update_render_turn_time() {
+	if (!shader_program) return;
+	GLint turn_time_uniform = glGetUniformLocation(shader_program, "turnTime");
+	if (turn_time_uniform >= 0) glUniform1ui(turn_time_uniform, current_turn_time);
 }

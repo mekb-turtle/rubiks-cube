@@ -77,6 +77,9 @@ struct move {
 	} dir;
 };
 
+#define FLIP_DIR(dir_) (dir_ == cw ? ccw : (dir_ == ccw ? cw : dir_))
+#define FLIP_FACE(face_) (face_ == F ? B : (face_ == R ? L : (face_ == U ? D : (face_ == B ? F : (face_ == L ? R : (face_ == D ? U : NO_FACE))))))
+
 struct sticker_rotations {
 	enum axis {
 		AXIS_X = 'x',
@@ -110,7 +113,6 @@ char get_char_move_face(enum move_face);
 char get_char_move_direction(enum move_direction);
 void make_move(struct cube *cube, struct move move, struct sticker_rotations *animation);
 void reset_cube(struct cube *);
-void shuffle_cube(struct cube *);
 intpos get_sticker_index(intpos face_no, intpos sticker_i);
 uint64_t get_sticker_bitmask(intpos face_no, intpos sticker_i);
 uint64_t get_face_bitmask(intpos face_no);

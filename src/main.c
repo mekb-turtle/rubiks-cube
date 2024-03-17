@@ -58,6 +58,7 @@ int main(int argc, char *argv[]) {
 
 	init_moves();
 	update_cube(&cube);
+	update_turn_time();
 
 	SDL_Point window_size;
 	SDL_Point render_size;
@@ -68,10 +69,10 @@ int main(int argc, char *argv[]) {
 
 	bool arrow_up = false, arrow_right = false, arrow_down = false, arrow_left = false;
 
-	time last_time = SDL_GetTicks();
+	int_time last_time = SDL_GetTicks();
 
 	while (loop) {
-		time current_time = SDL_GetTicks();
+		int_time current_time = SDL_GetTicks();
 
 		SDL_GetWindowSize(window, &window_size.x, &window_size.y);
 		if (window_size.x > window_size.y) {
@@ -158,6 +159,9 @@ int main(int argc, char *argv[]) {
 							break;
 						case ' ':
 							reset_camera();
+							break;
+						case SDLK_BACKSPACE:
+							shuffle_cube(&cube);
 							break;
 						default:
 							break;
