@@ -116,7 +116,7 @@ bool shuffle_cube(struct cube *cube) {
 		struct move move;
 		do {
 			move.face = possible_faces[rand() % possible_faces_count];
-		} while (move.face == last_move || move.face == FLIP_FACE(second_last_move)); // prevent undoing the move
+		} while (move.face == last_move || (move.face == second_last_move && last_move == FLIP_FACE(second_last_move))); // prevent undoing the move
 		move.dir = possible_dirs[rand() % possible_dirs_count];
 		second_last_move = last_move;
 		last_move = move.face;
