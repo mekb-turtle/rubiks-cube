@@ -15,3 +15,6 @@ struct rect rect(struct vec3 a, struct vec3 b, struct vec3 c, struct vec3 d) {
 	        {a, b, c, d}
     };
 }
+struct rect rect4(struct vec3 a) {
+	return rect(a, a, a, a);
+}

@@ -18,4 +18,5 @@ struct rect {
 struct vec3 vec3(float x, float y, float z);
 struct tri tri(struct vec3 a, struct vec3 b, struct vec3 c);
 struct rect rect(struct vec3 a, struct vec3 b, struct vec3 c, struct vec3 d);
+struct rect rect4(struct vec3 a);
 #endif
