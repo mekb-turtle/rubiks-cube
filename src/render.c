@@ -173,13 +173,31 @@ bool send_animation(struct sticker_rotations ani) {
 	return update_animation();
 }
 
+// handle error, avoids repetitive code
+static bool gl_check_error(void (*glGetIV)(GLuint, GLenum, GLint *), void (*glGetInfoLog)(GLuint, GLsizei, GLsizei *, GLchar *), GLuint shader, GLenum status, char *message) {
+	GLint success = 0;
+	// get if error
+	glGetIV(shader, status, &success);
+	if (success) return true;
+
+	// get length of error
+	fprintf(stderr, "%s\n", message);
+	GLint info_log_size = 0;
+	glGetIV(shader, GL_INFO_LOG_LENGTH, &info_log_size);
+	if (info_log_size <= 0) return false; // exit anyway if no error log
+
+	GLchar *info_log = calloc(info_log_size, sizeof(GLchar));
+	if (!info_log) return false; // exit anyway
+	glGetInfoLog(shader, info_log_size, NULL, info_log);
+	fprintf(stderr, "%s\n", info_log);
+	free(info_log);
+	return false;
+}
+
 bool initialize_render() {
 	reset_camera();
 
 	GLuint vertex_shader = 0, fragment_shader = 0;
-
-	int success;
-	char infoLog[512];
 
 	const char *const shader_fsh = binary_shader_fsh;
 	const char *const shader_vsh = binary_shader_vsh;
@@ -188,38 +206,20 @@ bool initialize_render() {
 	vertex_shader = glCreateShader(GL_VERTEX_SHADER);
 	glShaderSource(vertex_shader, 1, &shader_vsh, &binary_shader_vsh_len);
 	glCompileShader(vertex_shader);
-
-	glGetShaderiv(vertex_shader, GL_COMPILE_STATUS, &success);
-	if (!success) {
-		glGetShaderInfoLog(vertex_shader, 512, NULL, infoLog);
-		fprintf(stderr, "Error compiling vertex shader\n%s\n", infoLog);
-		goto error;
-	}
+	if (!gl_check_error(glGetShaderiv, glGetShaderInfoLog, vertex_shader, GL_COMPILE_STATUS, "Error compiling vertex shader")) goto error;
 
 	// Compile fragment shader
 	fragment_shader = glCreateShader(GL_FRAGMENT_SHADER);
 	glShaderSource(fragment_shader, 1, &shader_fsh, &binary_shader_fsh_len);
 	glCompileShader(fragment_shader);
-
-	glGetShaderiv(fragment_shader, GL_COMPILE_STATUS, &success);
-	if (!success) {
-		glGetShaderInfoLog(fragment_shader, 512, NULL, infoLog);
-		fprintf(stderr, "Error compiling fragment shader\n%s\n", infoLog);
-		goto error;
-	}
+	if (!gl_check_error(glGetShaderiv, glGetShaderInfoLog, fragment_shader, GL_COMPILE_STATUS, "Error compiling fragment shader")) goto error;
 
 	// Create shader program
 	shader_program = glCreateProgram();
 	glAttachShader(shader_program, vertex_shader);
 	glAttachShader(shader_program, fragment_shader);
 	glLinkProgram(shader_program);
-
-	glGetProgramiv(shader_program, GL_LINK_STATUS, &success);
-	if (!success) {
-		glGetShaderInfoLog(shader_program, 512, NULL, infoLog);
-		fprintf(stderr, "Error linking program\n%s\n", infoLog);
-		goto error;
-	}
+	if (!gl_check_error(glGetProgramiv, glGetProgramInfoLog, shader_program, GL_LINK_STATUS, "Error linking shader program")) goto error;
 
 	glDeleteShader(vertex_shader);
 	glDeleteShader(fragment_shader);
