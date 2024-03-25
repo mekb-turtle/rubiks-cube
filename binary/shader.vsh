@@ -77,7 +77,7 @@ void main() {
 	vec3 outPos = (vec4(position, 1.0) * rotation).xyz;
 
 	// same with normal
-	vec3 outNormal = (vec4(normal, 1.0) * rotation).xyz;
+	vec3 outNormal = normalize((vec4(normal, 1.0) * rotation).xyz);
 
 	// write data to fragment shader
 	fTexCoords = texCoords;
